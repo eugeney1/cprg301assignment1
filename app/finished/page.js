@@ -1,6 +1,7 @@
-"use client"; // Ensures this component is client-side
+"use client"; // Ensure this component is client-side
 
 import { useState, useEffect } from "react"; // Import useEffect and useState
+import "/app/globals.css"; // Importing global CSS for styling
 
 export default function FinishPage() {
   const [imageUrl, setImageUrl] = useState(null);
@@ -10,7 +11,7 @@ export default function FinishPage() {
     const urlParams = new URLSearchParams(window.location.search);
     const processedImageUrl = urlParams.get("imageUrl");
     if (processedImageUrl) {
-      setImageUrl(processedImageUrl); // Set the image URL to state
+      setImageUrl(processedImageUrl);
     }
   }, []); // Empty dependency array ensures this runs only once after initial render
 
@@ -20,26 +21,11 @@ export default function FinishPage() {
         <h1 className="text-3xl font-semibold text-[#00FFAB]">Processing Complete!</h1>
         <p className="text-lg text-[#D1D1D1]">Your image has been successfully processed.</p>
 
-        {/* Display the image if imageUrl is available */}
-        {imageUrl ? (
+        {imageUrl && (
           <div>
-            <img
-              src={imageUrl} // Use the processed image URL
-              alt="Processed Image"
-              className="max-w-full h-auto rounded-lg shadow-lg"
-            />
-            <div className="mt-4">
-              <a
-                href={imageUrl} // Provide the download link
-                download
-                className="bg-[#00FFAB] text-white px-6 py-3 rounded-lg hover:bg-[#00E599] inline-block"
-              >
-                Download Processed Image
-              </a>
-            </div>
+            <img src={imageUrl} alt="Processed Image" className="max-w-full h-auto rounded-lg" />
+            <a href={imageUrl} download className="mt-4 text-[#00FFAB] underline">Download Processed Image</a>
           </div>
-        ) : (
-          <p className="text-lg text-[#D1D1D1]">No image available</p>
         )}
       </div>
     </div>
