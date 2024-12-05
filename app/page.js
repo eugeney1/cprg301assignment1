@@ -40,42 +40,21 @@ export default function FileUploadPage() {
   // Handle file upload logic
   const uploadFile = (file) => {
     setMessage("Uploading...");
-    setIsUploading(true); // Start the loader
-    setProgress(0); // Reset progress
+    setIsUploading(true);
+    setProgress(0);
 
+    // Create local image URL
+    const imageUrl = URL.createObjectURL(file);
+    setImagePreview(imageUrl);
+
+    // Redirect to process page immediately with the image URL
+    router.push(`/process?imageUrl=${encodeURIComponent(imageUrl)}`);
+
+    // Optional: You can still send to server in background if needed
     const formData = new FormData();
     formData.append("file", file);
-
+    
     const xhr = new XMLHttpRequest();
-
-    // Listen for progress events
-    xhr.upload.addEventListener("progress", (e) => {
-      if (e.lengthComputable) {
-        const percent = (e.loaded / e.total) * 100;
-        setProgress(percent); // Update progress bar
-      }
-    });
-
-    xhr.onload = () => {
-      if (xhr.status === 200) {
-        const response = JSON.parse(xhr.responseText);
-        const processedImageUrl = response.processedImageUrl;
-        setMessage("File uploaded and processed successfully!");
-        setIsUploading(false); // Hide the loader
-
-        // Redirect to the process page with the processed image URL as a query param
-        router.push(`/process?imageUrl=${encodeURIComponent(processedImageUrl)}`);
-      } else {
-        setMessage("Error uploading file.");
-        setIsUploading(false); // Hide the loader
-      }
-    };
-
-    xhr.onerror = () => {
-      setMessage("Error uploading file.");
-      setIsUploading(false); // Hide the loader
-    };
-
     xhr.open("POST", "/api/upload");
     xhr.send(formData);
   };
