@@ -6,23 +6,56 @@ import "/app/globals.css";
 export default function ProcessingPage() {
   const [imageUrl, setImageUrl] = useState(null);
   const [colors, setColors] = useState(7);
-  const [placeholder, setPlaceholder] = useState(50);
+  const [size, setSize] = useState(4);
+  const [originalWidth, setOriginalWidth] = useState(0);
+  const [originalHeight, setOriginalHeight] = useState(0);
+  const [displayWidth, setDisplayWidth] = useState(0);
+  const [displayHeight, setDisplayHeight] = useState(0);
+  const [isMetric, setIsMetric] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const PPI = 300; // Pixels per inch for conversion
 
   useEffect(() => {
     const imgUrl = searchParams.get("imageUrl");
     if (imgUrl) {
       setImageUrl(decodeURIComponent(imgUrl));
+      const img = new Image();
+      img.onload = () => {
+        setOriginalWidth(img.width);
+        setOriginalHeight(img.height);
+        setDisplayWidth(img.width);
+        setDisplayHeight(img.height);
+      };
+      img.src = decodeURIComponent(imgUrl);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (originalWidth && originalHeight) {
+      const aspectRatio = originalWidth / originalHeight;
+      const targetWidth = size * PPI;
+      const targetHeight = targetWidth / aspectRatio;
+      setDisplayWidth(targetWidth);
+      setDisplayHeight(targetHeight);
+    }
+  }, [size, originalWidth, originalHeight]);
+
+  const formatDimension = (pixels) => {
+    const inches = pixels / PPI;
+    if (isMetric) {
+      const cm = inches * 2.54;
+      return `${cm.toFixed(2)} cm`;
+    }
+    return `${inches.toFixed(2)}"`;
+  };
 
   const handleConvert = () => {
     router.push(`/finished?imageUrl=${encodeURIComponent(imageUrl)}`);
   };
 
   const handlePreview = () => {
-    // Add preview generation logic here
     console.log('Generating preview...');
   };
 
@@ -33,7 +66,6 @@ export default function ProcessingPage() {
         
         {imageUrl ? (
           <div className="flex gap-8">
-            {/* Image container */}
             <div className="flex-1">
               <img 
                 src={imageUrl} 
@@ -42,11 +74,8 @@ export default function ProcessingPage() {
               />
             </div>
 
-            {/* Sliders and buttons container */}
             <div className="w-64 flex flex-col justify-between">
-              {/* Sliders section */}
               <div className="space-y-8 text-left">
-                {/* Colors slider */}
                 <div className="space-y-2">
                   <label className="block text-[#D1D1D1]">Colors (1-13)</label>
                   <input 
@@ -60,22 +89,32 @@ export default function ProcessingPage() {
                   <div className="text-sm text-[#00FFAB]">Value: {colors}</div>
                 </div>
 
-                {/* Placeholder slider */}
                 <div className="space-y-2">
-                  <label className="block text-[#D1D1D1]">Placeholder</label>
+                  <div className="flex justify-between items-center">
+                    <label className="text-[#D1D1D1]">Size</label>
+                    <button
+                      onClick={() => setIsMetric(!isMetric)}
+                      className="text-xs text-[#00FFAB] hover:text-[#00E39E]"
+                    >
+                      {isMetric ? "Switch to Imperial" : "Switch to Metric"}
+                    </button>
+                  </div>
                   <input 
                     type="range" 
-                    min="0" 
-                    max="100" 
-                    value={placeholder}
-                    onChange={(e) => setPlaceholder(e.target.value)}
+                    min="3"
+                    max="8" 
+                    step="0.1"
+                    value={size}
+                    onChange={(e) => setSize(parseFloat(e.target.value))}
                     className="w-full accent-[#00FFAB]"
                   />
-                  <div className="text-sm text-[#00FFAB]">Value: {placeholder}</div>
+                  <div className="text-sm text-[#00FFAB] space-y-1">
+                    <div>Width: {formatDimension(displayWidth)}</div>
+                    <div>Height: {formatDimension(displayHeight)}</div>
+                  </div>
                 </div>
               </div>
 
-              {/* Buttons section */}
               <div className="space-y-3 mt-4">
                 <button
                   onClick={handlePreview}
