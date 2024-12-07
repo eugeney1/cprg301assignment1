@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { processImage } from "./imageProcessor";
 import "/app/globals.css";
 
 export default function ProcessingPage() {
@@ -12,23 +13,36 @@ export default function ProcessingPage() {
   const [displayWidth, setDisplayWidth] = useState(0);
   const [displayHeight, setDisplayHeight] = useState(0);
   const [isMetric, setIsMetric] = useState(false);
+  const [currentDisplayedImage, setCurrentDisplayedImage] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [imageVersion, setImageVersion] = useState(0); // Add version for force re-render
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const PPI = 300; // Pixels per inch for conversion
+  const PPI = 300;
 
+  // Consolidated image loading effect
   useEffect(() => {
     const imgUrl = searchParams.get("imageUrl");
     if (imgUrl) {
-      setImageUrl(decodeURIComponent(imgUrl));
+      const decodedUrl = decodeURIComponent(imgUrl);
+      console.log('Loading initial image:', decodedUrl);
+      
       const img = new Image();
       img.onload = () => {
+        console.log('Image loaded successfully');
+        setImageUrl(decodedUrl);
+        setCurrentDisplayedImage(decodedUrl);
         setOriginalWidth(img.width);
         setOriginalHeight(img.height);
         setDisplayWidth(img.width);
         setDisplayHeight(img.height);
       };
-      img.src = decodeURIComponent(imgUrl);
+      img.onerror = () => {
+        console.error('Failed to load image');
+        alert('Failed to load the image. Please try again with a different image.');
+      };
+      img.src = decodedUrl;
     }
   }, [searchParams]);
 
@@ -51,12 +65,36 @@ export default function ProcessingPage() {
     return `${inches.toFixed(2)}"`;
   };
 
-  const handleConvert = () => {
-    router.push(`/finished?imageUrl=${encodeURIComponent(imageUrl)}`);
+  const handleConvert = async () => {
+    router.push(`/finished?imageUrl=${encodeURIComponent(currentDisplayedImage)}`);
   };
 
-  const handlePreview = () => {
-    console.log('Generating preview...');
+  const handlePreview = async () => {
+    if (!imageUrl || isProcessing) return;
+
+    setIsProcessing(true);
+    try {
+      console.log('Starting preview generation...');
+      const processedImageUrl = await processImage(imageUrl, {
+        colors: parseInt(colors)
+      });
+      
+      console.log('Preview generated successfully');
+      setCurrentDisplayedImage(processedImageUrl);
+      setImageVersion(prev => prev + 1); // Increment version to force re-render
+      
+      // Verify the new image loads correctly
+      const img = new Image();
+      img.onload = () => console.log('Processed image loaded successfully');
+      img.onerror = () => console.error('Failed to load processed image');
+      img.src = processedImageUrl;
+      
+    } catch (error) {
+      console.error('Preview generation failed:', error);
+      alert(`Failed to generate preview: ${error.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -68,9 +106,12 @@ export default function ProcessingPage() {
           <div className="flex gap-8">
             <div className="flex-1">
               <img 
-                src={imageUrl} 
+                key={imageVersion} // Force re-render when version changes
+                src={currentDisplayedImage}
                 alt="Uploaded Image" 
                 className="max-w-full h-auto rounded-lg shadow-md border border-gray-700"
+                onLoad={() => console.log('Image rendered in DOM')}
+                onError={(e) => console.error('Error rendering image:', e)}
               />
             </div>
 
@@ -118,15 +159,25 @@ export default function ProcessingPage() {
               <div className="space-y-3 mt-4">
                 <button
                   onClick={handlePreview}
-                  className="w-full bg-gray-700 text-[#D1D1D1] px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors duration-300"
+                  disabled={isProcessing}
+                  className={`w-full ${
+                    isProcessing 
+                      ? 'bg-gray-500 cursor-not-allowed' 
+                      : 'bg-gray-700 hover:bg-gray-600'
+                  } text-[#D1D1D1] px-6 py-2 rounded-lg transition-colors duration-300`}
                 >
-                  Generate Preview
+                  {isProcessing ? 'Processing...' : 'Generate Preview'}
                 </button>
                 <button
                   onClick={handleConvert}
-                  className="w-full bg-[#00FFAB] text-black px-6 py-2 rounded-lg hover:bg-[#00E39E] transition-colors duration-300"
+                  disabled={isProcessing}
+                  className={`w-full ${
+                    isProcessing 
+                      ? 'bg-[#007755] cursor-not-allowed' 
+                      : 'bg-[#00FFAB] hover:bg-[#00E39E]'
+                  } text-black px-6 py-2 rounded-lg transition-colors duration-300`}
                 >
-                  Convert
+                  {isProcessing ? 'Processing...' : 'Convert'}
                 </button>
               </div>
             </div>

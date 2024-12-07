@@ -1,0 +1,14 @@
+Technical Embroidery Info
+
+Embroidery thread will be assumed to be 0.35 mm width.
+We can use this information to make pixes, and the *resolution* of the
+converted image to embroidery. 
+
+We will also need to devise a way to figure out gradients. Perhaps some sort of
+zipper effect? likekly need to look into the logic behind converting normal images
+to vector images.
+
+Likely some sort of fill logic aswell.
+ 
+Can just reduce the resolution of the inputed image and use pixel art?
+
