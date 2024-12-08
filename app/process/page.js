@@ -15,13 +15,13 @@ export default function ProcessingPage() {
   const [isMetric, setIsMetric] = useState(false);
   const [currentDisplayedImage, setCurrentDisplayedImage] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [imageVersion, setImageVersion] = useState(0); // Add version for force re-render
+  const [imageVersion, setImageVersion] = useState(0);
+  const [currentPalette, setCurrentPalette] = useState([]);
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const PPI = 300;
 
-  // Consolidated image loading effect
   useEffect(() => {
     const imgUrl = searchParams.get("imageUrl");
     if (imgUrl) {
@@ -49,20 +49,34 @@ export default function ProcessingPage() {
   useEffect(() => {
     if (originalWidth && originalHeight) {
       const aspectRatio = originalWidth / originalHeight;
-      const targetWidth = size * PPI;
+      
+      // Calculate physical dimensions in inches
+      const targetWidth = size * PPI;  // This gives us the 3-8 inch range at 300 PPI
       const targetHeight = targetWidth / aspectRatio;
-      setDisplayWidth(targetWidth);
-      setDisplayHeight(targetHeight);
+  
+      // Now calculate the display dimensions in pixels (238-635 range)
+      const minPixels = 238;
+      const maxPixels = 635;
+      const sliderRange = 8 - 3; // max - min slider value
+      const pixelRange = maxPixels - minPixels;
+      
+      // Map the size value to pixel range
+      const normalized = (size - 3) / sliderRange;
+      const displayPixelWidth = Math.round(minPixels + (normalized * pixelRange));
+      const displayPixelHeight = Math.round(displayPixelWidth / aspectRatio);
+  
+      setDisplayWidth(displayPixelWidth);
+      setDisplayHeight(displayPixelHeight);
     }
   }, [size, originalWidth, originalHeight]);
-
+  
   const formatDimension = (pixels) => {
-    const inches = pixels / PPI;
+    const inches = size;  // Use the slider value directly for inches
     if (isMetric) {
       const cm = inches * 2.54;
-      return `${cm.toFixed(2)} cm`;
+      return `${cm.toFixed(2)} cm (${pixels}px)`;
     }
-    return `${inches.toFixed(2)}"`;
+    return `${inches.toFixed(2)}" (${pixels}px)`;
   };
 
   const handleConvert = async () => {
@@ -71,23 +85,26 @@ export default function ProcessingPage() {
 
   const handlePreview = async () => {
     if (!imageUrl || isProcessing) return;
-
+  
     setIsProcessing(true);
     try {
       console.log('Starting preview generation...');
-      const processedImageUrl = await processImage(imageUrl, {
-        colors: parseInt(colors)
+      const result = await processImage(imageUrl, {
+        colors: parseInt(colors),
+        width: displayWidth,
+        height: displayHeight,
+        ppi: PPI
       });
       
       console.log('Preview generated successfully');
-      setCurrentDisplayedImage(processedImageUrl);
-      setImageVersion(prev => prev + 1); // Increment version to force re-render
+      setCurrentDisplayedImage(result.processedImageUrl);
+      setCurrentPalette(result.palette || []);
+      setImageVersion(prev => prev + 1);
       
-      // Verify the new image loads correctly
       const img = new Image();
       img.onload = () => console.log('Processed image loaded successfully');
       img.onerror = () => console.error('Failed to load processed image');
-      img.src = processedImageUrl;
+      img.src = result.processedImageUrl;
       
     } catch (error) {
       console.error('Preview generation failed:', error);
@@ -105,14 +122,16 @@ export default function ProcessingPage() {
         {imageUrl ? (
           <div className="flex gap-8">
             <div className="flex-1">
-              <img 
-                key={imageVersion} // Force re-render when version changes
-                src={currentDisplayedImage}
-                alt="Uploaded Image" 
-                className="max-w-full h-auto rounded-lg shadow-md border border-gray-700"
-                onLoad={() => console.log('Image rendered in DOM')}
-                onError={(e) => console.error('Error rendering image:', e)}
-              />
+              <div className="w-[600px] h-[600px] flex items-center justify-center">  {/* Fixed size container */}
+                <img 
+                  key={imageVersion}
+                  src={currentDisplayedImage}
+                  alt="Uploaded Image" 
+                  className="object-contain w-full h-full rounded-lg shadow-md border border-gray-700"
+                  onLoad={() => console.log('Image rendered in DOM')}
+                  onError={(e) => console.error('Error rendering image:', e)}
+                />
+              </div>
             </div>
 
             <div className="w-64 flex flex-col justify-between">
@@ -128,6 +147,21 @@ export default function ProcessingPage() {
                     className="w-full accent-[#00FFAB]"
                   />
                   <div className="text-sm text-[#00FFAB]">Value: {colors}</div>
+                  
+                  {/* Color Swatches */}
+                  <div className="mt-4">
+                    <div className="text-sm text-[#D1D1D1] mb-2">Current Colors:</div>
+                    <div className="flex flex-wrap gap-1">
+                      {currentPalette.slice(0, parseInt(colors)).map((color, index) => (
+                        <div
+                          key={index}
+                          className="w-4 h-4 rounded-sm shadow-sm border border-gray-700"
+                          style={{ backgroundColor: color }}
+                          title={color}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
