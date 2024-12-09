@@ -17,8 +17,7 @@ export default function ProcessingPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [imageVersion, setImageVersion] = useState(0);
   const [currentPalette, setCurrentPalette] = useState([]);
-  
-  // Filter controls
+
   const [hue, setHue] = useState(0); 
   const [saturation, setSaturation] = useState(100); 
   const [brightness, setBrightness] = useState(100); 
@@ -33,6 +32,9 @@ export default function ProcessingPage() {
 
   const PPI = 300;
 
+  // Store the original image URL for revert functionality
+  const [originalImage, setOriginalImage] = useState(null);
+
   useEffect(() => {
     const imgUrl = searchParams.get("imageUrl");
     if (imgUrl) {
@@ -44,6 +46,7 @@ export default function ProcessingPage() {
         console.log('Image loaded successfully');
         setImageUrl(decodedUrl);
         setCurrentDisplayedImage(decodedUrl);
+        setOriginalImage(decodedUrl); // Store original image URL
         setOriginalWidth(img.width);
         setOriginalHeight(img.height);
         setDisplayWidth(img.width);
@@ -61,12 +64,12 @@ export default function ProcessingPage() {
     if (originalWidth && originalHeight) {
       const aspectRatio = originalWidth / originalHeight;
 
-      const targetWidth = size * PPI; // This gives us the 3-8 inch range at 300 PPI
+      const targetWidth = size * PPI; 
       const targetHeight = targetWidth / aspectRatio;
 
       const minPixels = 238;
       const maxPixels = 635;
-      const sliderRange = 8 - 3; // max - min slider value
+      const sliderRange = 8 - 3; 
       const pixelRange = maxPixels - minPixels;
 
       const normalized = (size - 3) / sliderRange;
@@ -79,7 +82,7 @@ export default function ProcessingPage() {
   }, [size, originalWidth, originalHeight]);
 
   const formatDimension = (pixels) => {
-    const inches = size; // Use the slider value directly for inches
+    const inches = size; 
     if (isMetric) {
       const cm = inches * 2.54;
       return `${cm.toFixed(2)} cm (${pixels}px)`;
@@ -137,6 +140,16 @@ export default function ProcessingPage() {
       ctx.drawImage(img, 0, 0);
       return canvas.toDataURL(); 
     };
+  };
+
+  // New Revert function
+  const handleRevert = () => {
+    setCurrentDisplayedImage(originalImage); // Revert to original image
+    setHue(0); // Reset any applied filters
+    setSaturation(100);
+    setBrightness(100);
+    setContrast(100);
+    setColors(7); // Reset color adjustments
   };
 
   return (
@@ -320,6 +333,13 @@ export default function ProcessingPage() {
                   className={`w-full ${isProcessing ? 'bg-[#007755] cursor-not-allowed' : 'bg-[#00FFAB] hover:bg-[#00E39E]'} text-black px-6 py-2 rounded-lg transition-colors duration-300`}
                 >
                   {isProcessing ? 'Processing...' : 'Convert'}
+                </button>
+                {/* Revert Button */}
+                <button
+                  onClick={handleRevert}
+                  className="w-full bg-gray-600 hover:bg-gray-500 text-[#D1D1D1] px-6 py-2 rounded-lg transition-colors duration-300"
+                >
+                  Revert
                 </button>
               </div>
             </div>
