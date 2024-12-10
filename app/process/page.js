@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { processImage } from "./imageProcessor";
+import { downloadDSB } from "./imageConvert";
 import "/app/globals.css";
  
 export default function ProcessingPage() {
@@ -91,8 +92,21 @@ export default function ProcessingPage() {
   };
  
   const handleConvert = async () => {
-    const processedImageUrl = encodeURIComponent(currentDisplayedImage);
-    router.push(`/finished?imageUrl=${processedImageUrl}`);
+    try {
+      // Get original filename from URL
+      let fileName = 'embroidery';
+      if (imageUrl) {
+        // Extract filename from URL
+        const urlParts = imageUrl.split('/');
+        const fullFileName = urlParts[urlParts.length - 1].split('?')[0];
+        fileName = fullFileName.split('.')[0];
+      }
+      
+      await downloadDSB(currentDisplayedImage, currentPalette, displayWidth, displayHeight, fileName);
+    } catch (error) {
+      console.error('Conversion failed:', error);
+      alert('Failed to convert image: ' + error.message);
+    }
   };
  
   const handlePreview = async () => {
