@@ -1,10 +1,15 @@
 // Utility functions for DSB file creation
 const DSB_COMMANDS = {
     STITCH: 0x80,    // 10000000
+    STITCH_NEG_X: 0xA0, // 10100000
+    STITCH_NEG_Y: 0xC0, // 11000000
+    STITCH_NEG_BOTH: 0xE0, // 11100000
     COLOR_CHANGE: 0x88,  // 10001000
     JUMP: 0x81,      // 10000001
     END: 0xf8        // 11111000
   };
+
+const STITCH_HEIGHT_OFFSET = 3; // Units to move up/down between stitches
 
 class DSBWriter {
   constructor() {
@@ -74,11 +79,7 @@ class DSBWriter {
     }
   }
 
-  addStitch(x, y, command = DSB_COMMANDS.STITCH) {
-    // Convert to relative coordinates
-    const deltaX = x - this.currentX;
-    const deltaY = y - this.currentY;
-
+  addStitch(command = DSB_COMMANDS.STITCH, y, x) {
     // Update current position
     this.currentX = x;
     this.currentY = y;
@@ -146,7 +147,7 @@ export async function convertImageToDSB(imageData, palette, width, height) {
         }
   
         // Generate and add stitches for this region
-        const stitches = generateFillStitches(region, STITCH_SPACING);
+        const stitches = generateFillStitches(region);
         for (const stitch of stitches) {
           dsb.addStitch(stitch.x, stitch.y, stitch.command);
         }
@@ -166,9 +167,6 @@ export async function convertImageToDSB(imageData, palette, width, height) {
       throw error;
     }
   }
-  
-  const STITCH_SPACING = 5; // 5 pixels per stitch
-  const STITCH_HEIGHT_OFFSET = 2; // Units to move up/down between stitches
   
   class Region {
     constructor(color, startX, startY) {
@@ -264,112 +262,105 @@ export async function convertImageToDSB(imageData, palette, width, height) {
   }
   
   function findClosestColor(rgb, palette) {
-    // Helper function to convert any color format to RGB values
-    function colorToRGB(color) {
-      // Create a temporary element to use the browser's color parsing
-      const temp = document.createElement('div');
-      temp.style.color = color;
-      document.body.appendChild(temp);
-      const style = window.getComputedStyle(temp);
-      const rgb = style.color;
-      document.body.removeChild(temp);
-      
-      // Extract RGB values using regex
-      const match = rgb.match(/\d+/g);
-      if (!match) {
-        console.error('Failed to parse color:', color);
-        return [0, 0, 0];
-      }
-      return match.map(Number);
+  // Helper function to convert any color format to RGB values
+  function colorToRGB(color) {
+    // Create a temporary element to use the browser's color parsing
+    const temp = document.createElement('div');
+    temp.style.color = color;
+    document.body.appendChild(temp);
+    const style = window.getComputedStyle(temp);
+    const rgb = style.color;
+    document.body.removeChild(temp);
+    
+    // Extract RGB values using regex
+    const match = rgb.match(/\d+/g);
+    if (!match) {
+      console.error('Failed to parse color:', color);
+      return [0, 0, 0];
     }
-  
-    // Convert input color to RGB values
-    const [r, g, b] = colorToRGB(rgb);
-    
-    let minDistance = Infinity;
-    let closestIndex = 0;
-    
-    palette.forEach((color, index) => {
-      const [pr, pg, pb] = colorToRGB(color);
-      const distance = Math.sqrt(
-        Math.pow(r - pr, 2) + 
-        Math.pow(g - pg, 2) + 
-        Math.pow(b - pb, 2)
-      );
-      
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestIndex = index;
-      }
-    });
-    
-    return closestIndex;
+    return match.map(Number);
   }
+
+  // Convert input color to RGB values
+  const [r, g, b] = colorToRGB(rgb);
   
-  function generateFillStitches(region, stitchSpacing) {
+  let minDistance = Infinity;
+  let closestIndex = 0;
+  
+  palette.forEach((color, index) => {
+    const [pr, pg, pb] = colorToRGB(color);
+    const distance = Math.sqrt(
+      Math.pow(r - pr, 2) + 
+      Math.pow(g - pg, 2) + 
+      Math.pow(b - pb, 2)
+    );
+    
+    if (distance < minDistance) {
+      minDistance = distance;
+      closestIndex = index;
+    }
+  });
+  
+  return closestIndex;
+}
+  /**
+   * stitch format
+   * 
+   * stitches.push({
+        command: DSB_COMMANDS.STITCH,
+        y: y * STITCH_SPACING + (isUp ? STITCH_HEIGHT_OFFSET : -STITCH_HEIGHT_OFFSET),
+        x: x * STITCH_SPACING
+    });
+
+
+    STITCH_HEIGHT_OFFSET == 3 units
+
+   */
+  function generateFillStitches(region) {
     const stitches = [];
-    const { minX, maxX, minY, maxY } = region;
-    
-    // Generate vertical stitches first
-    for (let x = minX; x <= maxX; x += 1) {
-      let isUp = true; // Direction flag
-      let lastY = null;
-      
-      // Find continuous vertical lines
-      for (let y = maxY; y >= minY; y -= 1) {
-        if (region.hasPixel(x, y)) {
-          if (lastY === null) {
-            // Start new line - Jump to position
-            stitches.push({
-              x: x * STITCH_SPACING, // Convert pixel position to stitch units
-              y: y * STITCH_SPACING,
-              command: DSB_COMMANDS.JUMP
-            });
-          } else {
-            // Continue line
-            stitches.push({
-              x: x * STITCH_SPACING,
-              y: y * STITCH_SPACING + (isUp ? STITCH_HEIGHT_OFFSET : -STITCH_HEIGHT_OFFSET),
-              command: DSB_COMMANDS.STITCH
-            });
-          }
-          lastY = y;
-          isUp = !isUp; // Alternate direction for zigzag effect
-        } else if (lastY !== null) {
-          lastY = null; // End current line
-        }
-      }
+
+    let pixel_length = 9;
+
+    //making a pixel
+    for (let x = 0; x < 3; x++){
+        stitches.push({
+            command: DSB_COMMANDS.STITCH_NEG_Y,
+            y: STITCH_HEIGHT_OFFSET,
+            x: pixel_length
+        });
+        
+        stitches.push({
+            command: DSB_COMMANDS.STITCH_NEG_X,
+            y: 0,
+            x: pixel_length
+        });
     }
-    
-    // Generate horizontal stitches
-    for (let y = maxY; y >= minY; y -= 1) {
-      let isRight = true; // Direction flag
-      let lastX = null;
-      
-      for (let x = minX; x <= maxX; x += 1) {
-        if (region.hasPixel(x, y)) {
-          if (lastX === null) {
-            // Start new line - Jump to position
-            stitches.push({
-              x: x * STITCH_SPACING,
-              y: y * STITCH_SPACING,
-              command: DSB_COMMANDS.JUMP
-            });
-          } else {
-            // Continue line
-            stitches.push({
-              x: x * STITCH_SPACING + (isRight ? STITCH_HEIGHT_OFFSET : -STITCH_HEIGHT_OFFSET),
-              y: y * STITCH_SPACING,
-              command: DSB_COMMANDS.STITCH
-            });
-          }
-          lastX = x;
-          isRight = !isRight; // Alternate direction for zigzag effect
-        } else if (lastX !== null) {
-          lastX = null; // End current line
-        }
-      }
-    }
+
+    stitches.push({
+        command: DSB_COMMANDS.STITCH,
+        y: pixel_length,
+        x: 0
+    });
+
+    stitches.push({
+        command: DSB_COMMANDS.STITCH,
+        y: 0,
+        x: pixel_length
+    });
+
+    stitches.push({
+        command: DSB_COMMANDS.STITCH_NEG_Y,
+        y: pixel_length,
+        x: 0
+    });
+
+    //pixel is done, moving into position for the next one
+    //for now this assumes that the next pixel we're embroidering will be to the right.
+    stitches.push({
+      command: DSB_COMMANDS.STITCH,
+      y: pixel_length,
+      x: 3
+    });
     
     return stitches;
   }
