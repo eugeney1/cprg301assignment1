@@ -2,9 +2,8 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { processImage } from "./imageProcessor";
-import { downloadDSB } from "./imageConvert";
 import "/app/globals.css";
- 
+
 export default function ProcessingPage() {
   const [imageUrl, setImageUrl] = useState(null);
   const [colors, setColors] = useState(7);
@@ -18,30 +17,29 @@ export default function ProcessingPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [imageVersion, setImageVersion] = useState(0);
   const [currentPalette, setCurrentPalette] = useState([]);
- 
-  const [hue, setHue] = useState(0);
-  const [saturation, setSaturation] = useState(100);
-  const [brightness, setBrightness] = useState(100);
-  const [contrast, setContrast] = useState(100);
- 
+
+  const [hue, setHue] = useState(0); 
+  const [saturation, setSaturation] = useState(100); 
+  const [brightness, setBrightness] = useState(100); 
+  const [contrast, setContrast] = useState(100); 
+
   const [isFiltersOpen, setIsFiltersOpen] = useState(true);
   const [isSizeOpen, setIsSizeOpen] = useState(true);
   const [isColorsOpen, setIsColorsOpen] = useState(true);
- 
+
   const router = useRouter();
   const searchParams = useSearchParams();
- 
+
   const PPI = 300;
- 
+
   // Store the original image URL for revert functionality
   const [originalImage, setOriginalImage] = useState(null);
- 
+
   useEffect(() => {
     const imgUrl = searchParams.get("imageUrl");
     if (imgUrl) {
       const decodedUrl = decodeURIComponent(imgUrl);
       console.log('Loading initial image:', decodedUrl);
- 
       const img = new Image();
       img.onload = () => {
         console.log('Image loaded successfully');
@@ -60,58 +58,45 @@ export default function ProcessingPage() {
       img.src = decodedUrl;
     }
   }, [searchParams]);
- 
+
   useEffect(() => {
     if (originalWidth && originalHeight) {
       const aspectRatio = originalWidth / originalHeight;
- 
-      const targetWidth = size * PPI;
+
+      const targetWidth = size * PPI; 
       const targetHeight = targetWidth / aspectRatio;
- 
+
       const minPixels = 238;
       const maxPixels = 635;
-      const sliderRange = 8 - 3;
+      const sliderRange = 8 - 3; 
       const pixelRange = maxPixels - minPixels;
- 
+
       const normalized = (size - 3) / sliderRange;
       const displayPixelWidth = Math.round(minPixels + normalized * pixelRange);
       const displayPixelHeight = Math.round(displayPixelWidth / aspectRatio);
- 
+
       setDisplayWidth(displayPixelWidth);
       setDisplayHeight(displayPixelHeight);
     }
   }, [size, originalWidth, originalHeight]);
- 
+
   const formatDimension = (pixels) => {
-    const inches = size;
+    const inches = size; 
     if (isMetric) {
       const cm = inches * 2.54;
       return `${cm.toFixed(2)} cm (${pixels}px)`;
     }
     return `${inches.toFixed(2)}" (${pixels}px)`;
   };
- 
+
   const handleConvert = async () => {
-    try {
-      // Get original filename from URL
-      let fileName = 'embroidery';
-      if (imageUrl) {
-        // Extract filename from URL
-        const urlParts = imageUrl.split('/');
-        const fullFileName = urlParts[urlParts.length - 1].split('?')[0];
-        fileName = fullFileName.split('.')[0];
-      }
-      
-      await downloadDSB(currentDisplayedImage, currentPalette, displayWidth, displayHeight, fileName);
-    } catch (error) {
-      console.error('Conversion failed:', error);
-      alert('Failed to convert image: ' + error.message);
-    }
+    const processedImageUrl = encodeURIComponent(currentDisplayedImage);
+    router.push(`/finished?imageUrl=${processedImageUrl}`);
   };
- 
+
   const handlePreview = async () => {
     if (!imageUrl || isProcessing) return;
- 
+
     setIsProcessing(true);
     try {
       console.log('Starting preview generation...');
@@ -121,12 +106,10 @@ export default function ProcessingPage() {
         height: displayHeight,
         ppi: PPI,
       });
- 
       console.log('Preview generated successfully');
       setCurrentDisplayedImage(result.processedImageUrl);
       setCurrentPalette(result.palette || []);
       setImageVersion(prev => prev + 1);
- 
       const img = new Image();
       img.onload = () => console.log('Processed image loaded successfully');
       img.onerror = () => console.error('Failed to load processed image');
@@ -138,24 +121,24 @@ export default function ProcessingPage() {
       setIsProcessing(false);
     }
   };
- 
+
   const imageFilter = `hue-rotate(${hue}deg) saturate(${saturation}%) brightness(${brightness}%) contrast(${contrast}%)`;
- 
+
   const applyFiltersToColor = (color) => {
     const filter = `hue-rotate(${hue}deg) saturate(${saturation}%) brightness(${brightness}%) contrast(${contrast}%)`;
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const img = new Image();
-    img.src = color;
+    img.src = color; 
     img.onload = () => {
       canvas.width = img.width;
       canvas.height = img.height;
       ctx.filter = filter;
       ctx.drawImage(img, 0, 0);
-      return canvas.toDataURL();
+      return canvas.toDataURL(); 
     };
   };
- 
+
   // New Revert function
   const handleRevert = () => {
     setCurrentDisplayedImage(originalImage); // Revert to original image
@@ -165,12 +148,10 @@ export default function ProcessingPage() {
     setContrast(100);
     setColors(7); // Reset color adjustments
   };
- 
   return (
     <div className="flex justify-center items-center min-h-screen bg-[#121212] text-[#D1D1D1]">
       <div className="bg-[#181818] p-8 rounded-xl shadow-lg text-center w-full max-w-5xl">
         <h1 className="text-3xl font-semibold text-[#00FFAB] mb-6">Your Image</h1>
- 
         {imageUrl ? (
           <div className="flex gap-8">
             <div className="flex-1">
@@ -180,11 +161,11 @@ export default function ProcessingPage() {
                   src={currentDisplayedImage}
                   alt="Uploaded Image"
                   className="object-contain w-full h-full rounded-lg shadow-md border border-gray-700"
-                  style={{ filter: imageFilter }}
+                  style={{ filter: imageFilter }} 
                 />
               </div>
             </div>
- 
+
             <div className="w-64 flex flex-col justify-between">
               {/* Color Adjustment */}
               <div className="space-y-4">
@@ -206,7 +187,6 @@ export default function ProcessingPage() {
                       className="w-full accent-[#00FFAB]"
                     />
                     <div className="text-sm text-[#00FFAB]">Value: {colors}</div>
- 
                     {/* Color Swatches */}
                     <div className="mt-4">
                       <div className="text-sm text-[#D1D1D1] mb-2">Current Colors:</div>
@@ -227,7 +207,6 @@ export default function ProcessingPage() {
                   </div>
                 )}
               </div>
- 
               {/* Size Adjustment */}
               <div className="space-y-4">
                 <button
@@ -263,7 +242,6 @@ export default function ProcessingPage() {
                   </div>
                 )}
               </div>
- 
               {/* Filter Adjustment */}
               <div className="space-y-4">
                 <button
@@ -287,7 +265,6 @@ export default function ProcessingPage() {
                       />
                       <div className="text-sm text-[#00FFAB]">Value: {hue}°</div>
                     </div>
- 
                     {/* Saturation Control */}
                     <div className="space-y-2">
                       <label className="block text-[#D1D1D1]">Saturation</label>
@@ -301,7 +278,6 @@ export default function ProcessingPage() {
                       />
                       <div className="text-sm text-[#00FFAB]">Value: {saturation}%</div>
                     </div>
- 
                     {/* Brightness Control */}
                     <div className="space-y-2">
                       <label className="block text-[#D1D1D1]">Brightness</label>
@@ -315,7 +291,6 @@ export default function ProcessingPage() {
                       />
                       <div className="text-sm text-[#00FFAB]">Value: {brightness}%</div>
                     </div>
- 
                     {/* Contrast Control */}
                     <div className="space-y-2">
                       <label className="block text-[#D1D1D1]">Contrast</label>
@@ -332,7 +307,6 @@ export default function ProcessingPage() {
                   </div>
                 )}
               </div>
- 
               <div className="space-y-3 mt-6">
                 <button
                   onClick={handlePreview}
