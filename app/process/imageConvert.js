@@ -262,46 +262,7 @@ export async function convertImageToDSB(imageData, palette, width, height) {
   }
   
   function findClosestColor(rgb, palette) {
-  // Helper function to convert any color format to RGB values
-  function colorToRGB(color) {
-    // Create a temporary element to use the browser's color parsing
-    const temp = document.createElement('div');
-    temp.style.color = color;
-    document.body.appendChild(temp);
-    const style = window.getComputedStyle(temp);
-    const rgb = style.color;
-    document.body.removeChild(temp);
     
-    // Extract RGB values using regex
-    const match = rgb.match(/\d+/g);
-    if (!match) {
-      console.error('Failed to parse color:', color);
-      return [0, 0, 0];
-    }
-    return match.map(Number);
-  }
-
-  // Convert input color to RGB values
-  const [r, g, b] = colorToRGB(rgb);
-  
-  let minDistance = Infinity;
-  let closestIndex = 0;
-  
-  palette.forEach((color, index) => {
-    const [pr, pg, pb] = colorToRGB(color);
-    const distance = Math.sqrt(
-      Math.pow(r - pr, 2) + 
-      Math.pow(g - pg, 2) + 
-      Math.pow(b - pb, 2)
-    );
-    
-    if (distance < minDistance) {
-      minDistance = distance;
-      closestIndex = index;
-    }
-  });
-  
-  return closestIndex;
 }
   /**
    * stitch format
@@ -316,6 +277,8 @@ export async function convertImageToDSB(imageData, palette, width, height) {
     STITCH_HEIGHT_OFFSET == 3 units
 
    */
+
+    //only makes 1 pixel for now
   function generateFillStitches(region) {
     const stitches = [];
 
