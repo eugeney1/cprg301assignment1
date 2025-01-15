@@ -40,7 +40,6 @@ export default function ProcessingPage() {
     if (imgUrl) {
       const decodedUrl = decodeURIComponent(imgUrl);
       console.log('Loading initial image:', decodedUrl);
-
       const img = new Image();
       img.onload = () => {
         console.log('Image loaded successfully');
@@ -107,12 +106,10 @@ export default function ProcessingPage() {
         height: displayHeight,
         ppi: PPI,
       });
-
       console.log('Preview generated successfully');
       setCurrentDisplayedImage(result.processedImageUrl);
       setCurrentPalette(result.palette || []);
       setImageVersion(prev => prev + 1);
-
       const img = new Image();
       img.onload = () => console.log('Processed image loaded successfully');
       img.onerror = () => console.error('Failed to load processed image');
@@ -151,12 +148,10 @@ export default function ProcessingPage() {
     setContrast(100);
     setColors(7); // Reset color adjustments
   };
-
   return (
     <div className="flex justify-center items-center min-h-screen bg-[#121212] text-[#D1D1D1]">
       <div className="bg-[#181818] p-8 rounded-xl shadow-lg text-center w-full max-w-5xl">
         <h1 className="text-3xl font-semibold text-[#00FFAB] mb-6">Your Image</h1>
-
         {imageUrl ? (
           <div className="flex gap-8">
             <div className="flex-1">
@@ -192,7 +187,6 @@ export default function ProcessingPage() {
                       className="w-full accent-[#00FFAB]"
                     />
                     <div className="text-sm text-[#00FFAB]">Value: {colors}</div>
-
                     {/* Color Swatches */}
                     <div className="mt-4">
                       <div className="text-sm text-[#D1D1D1] mb-2">Current Colors:</div>
@@ -213,7 +207,6 @@ export default function ProcessingPage() {
                   </div>
                 )}
               </div>
-
               {/* Size Adjustment */}
               <div className="space-y-4">
                 <button
@@ -249,7 +242,6 @@ export default function ProcessingPage() {
                   </div>
                 )}
               </div>
-
               {/* Filter Adjustment */}
               <div className="space-y-4">
                 <button
@@ -273,7 +265,6 @@ export default function ProcessingPage() {
                       />
                       <div className="text-sm text-[#00FFAB]">Value: {hue}°</div>
                     </div>
-
                     {/* Saturation Control */}
                     <div className="space-y-2">
                       <label className="block text-[#D1D1D1]">Saturation</label>
@@ -287,7 +278,6 @@ export default function ProcessingPage() {
                       />
                       <div className="text-sm text-[#00FFAB]">Value: {saturation}%</div>
                     </div>
-
                     {/* Brightness Control */}
                     <div className="space-y-2">
                       <label className="block text-[#D1D1D1]">Brightness</label>
@@ -301,7 +291,6 @@ export default function ProcessingPage() {
                       />
                       <div className="text-sm text-[#00FFAB]">Value: {brightness}%</div>
                     </div>
-
                     {/* Contrast Control */}
                     <div className="space-y-2">
                       <label className="block text-[#D1D1D1]">Contrast</label>
@@ -318,7 +307,6 @@ export default function ProcessingPage() {
                   </div>
                 )}
               </div>
-
               <div className="space-y-3 mt-6">
                 <button
                   onClick={handlePreview}
