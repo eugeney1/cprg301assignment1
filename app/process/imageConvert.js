@@ -5,10 +5,10 @@ const DSB_COMMANDS = {
   STITCH_NEG_Y: 0xc0, // 11000000
   STITCH_NEG_BOTH: 0xe0, // 11100000
   COLOR_CHANGE: 0x88, // 10001000
-  JUMP: 0x01, // 00000001
-  JUMP_NEG_X: 0x21, // 00100001
-  JUMP_NEG_Y: 0x41, // 01000001
-  JUMP_NEG_BOTH: 0x61, //01100001
+  JUMP: 0x81, // 10000001
+  JUMP_NEG_X: 0xa1, // 10100001
+  JUMP_NEG_Y: 0xc1, // 11000001
+  JUMP_NEG_BOTH: 0xe1, // 11100001
   END: 0xf8, // 11111000
 };
 
@@ -16,7 +16,7 @@ const STITCH_HEIGHT_OFFSET = 3; // Units to move up/down between stitches
 
 class DSBWriter {
   constructor() {
-    this.buffer = [];
+    this.buffer = []; 
     this.currentX = 0;
     this.currentY = 0;
     this.maxX = 0;
@@ -61,6 +61,7 @@ class DSBWriter {
   }
 
   // Initial positioning jumps to get to start position
+  // Assume we are starting the design in the top left
   addInitialJumps(startX, startY) {
     // Calculate number of jumps needed (max jump is 255 units due to unsigned byte)
     const MAX_JUMP = 255;
@@ -81,30 +82,6 @@ class DSBWriter {
 
       remainingX -= jumpX;
       remainingY -= jumpY;
-    }
-  }
-
-  addStitch(command = DSB_COMMANDS.STITCH, y, x) {
-    // Update current position
-    this.currentX = x;
-    this.currentY = y;
-
-    // Update boundaries
-    this.maxX = Math.max(this.maxX, x);
-    this.maxY = Math.max(this.maxY, y);
-    this.minX = Math.min(this.minX, x);
-    this.minY = Math.min(this.minY, y);
-
-    // Add stitch data (DSB format: command, Y, X)
-    this.buffer.push(command); // Command byte
-    this.buffer.push(deltaY & 0xff); // Y coordinate
-    this.buffer.push(deltaX & 0xff); // X coordinate
-
-    if (command === DSB_COMMANDS.COLOR_CHANGE) {
-      this.colorChanges++;
-    }
-    if (command === DSB_COMMANDS.STITCH || command === DSB_COMMANDS.JUMP) {
-      this.stitchCount++;
     }
   }
 
@@ -174,33 +151,6 @@ export async function convertImageToDSB(imageData, palette, width, height) {
   } catch (error) {
     console.error("Error converting image to DSB:", error);
     throw error;
-  }
-}
-
-class Region {
-  constructor(color, startX, startY) {
-    this.color = color;
-    this.pixels = new Set(); // Store pixel coordinates as "x,y" strings
-    this.minX = startX;
-    this.maxX = startX;
-    this.minY = startY;
-    this.maxY = startY;
-    this.addPixel(startX, startY);
-  }
-
-  addPixel(x, y) {
-    const coord = `${x},${y}`;
-    if (!this.pixels.has(coord)) {
-      this.pixels.add(coord);
-      this.minX = Math.min(this.minX, x);
-      this.maxX = Math.max(this.maxX, x);
-      this.minY = Math.min(this.minY, y);
-      this.maxY = Math.max(this.maxY, y);
-    }
-  }
-
-  hasPixel(x, y) {
-    return this.pixels.has(`${x},${y}`);
   }
 }
 
