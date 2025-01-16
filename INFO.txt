@@ -51,7 +51,7 @@ Here are some direct examples
 
 10001000 or 88 = color switch and single stitch after wards
 10000000 or 80 = single stitch
-10000001 or 81 = jump
+00000001 or 01 = jump
 11111000 or f8 = end of machine file
 
 The machine will always move BEFORE it stitches in a dsb file
