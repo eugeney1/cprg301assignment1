@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation"; // For client-side navigation
+import Link from "next/link"; // For routing links
 import "/app/globals.css"; // Importing global CSS for styling
 
 export default function FileUploadPage() {
@@ -60,7 +61,18 @@ export default function FileUploadPage() {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-[#121212] text-[#D1D1D1]">
+    <div className="relative flex justify-center items-center min-h-screen bg-[#121212] text-[#D1D1D1]">
+      {/* Sign In Button */}
+      <div className="absolute top-4 right-4">
+        <Link href="/signin">
+          <button
+            className="bg-[#00FFAB] text-black px-6 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300"
+          >
+            Sign In
+          </button>
+        </Link>
+      </div>
+
       {/* Upload Section */}
       <div className="bg-[#181818] p-8 rounded-xl shadow-lg text-center space-y-6 w-full max-w-md">
         <h1 className="text-3xl font-semibold text-[#00FFAB]">Welcome to Auto Digitizing</h1>
