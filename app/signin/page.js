@@ -1,63 +1,181 @@
 "use client";
 
-import { useUserAuth } from "./_utils/auth-context";
-import Link from 'next/link';
-import '/app/globals.css';
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useUserAuth } from "./_utils/auth-context"; // Assuming you have this context
+import "/app/globals.css";
 
-export default function SignInPage() {
-    const { user, gitHubSignIn, firebaseSignOut } = useUserAuth();
+export default function FileUploadPage() {
+  const { user, gitHubSignIn, firebaseSignOut } = useUserAuth(); // Access user and auth functions
+  const [file, setFile] = useState(null);
+  const [message, setMessage] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [imagePreview, setImagePreview] = useState(null);
+  const fileInputRef = useRef(null);
+  const router = useRouter();
 
-    async function handleSignIn() {
-        try {
-            await gitHubSignIn();
-        } catch (error) {
-            console.log(error);
-        }
+  const handleFileSelect = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      setImagePreview(URL.createObjectURL(selectedFile));
+      uploadFile(selectedFile);
     }
+  };
 
-    async function handleSignOut() {
-        try {
-            await firebaseSignOut();
-        } catch (error) {
-            console.log(error);
-        }
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+      setFile(droppedFile);
+      setImagePreview(URL.createObjectURL(droppedFile));
+      uploadFile(droppedFile);
     }
+  };
 
-    return (
-        <main className="flex items-center justify-center min-h-screen bg-gray-900 text-gray-200">
-            <div className="bg-gray-800 p-6 rounded-lg w-full sm:w-2/3 md:w-1/3 max-w-md">
-                <h1 className="text-2xl font-semibold text-green-400 text-center mb-4">Sign In</h1>
-                <p className="text-center text-gray-400 mb-6">Please sign in to continue</p>
+  const uploadFile = (file) => {
+    setMessage("Uploading...");
+    setIsUploading(true);
+    setProgress(0);
 
-                {user ? (
-                    <div className="text-center">
-                        <p className="text-lg text-gray-200">Welcome, {user.displayName || user.email}!</p>
-                        {user.photoURL && (
-                            <img src={user.photoURL} alt="User Profile" className="w-16 h-16 rounded-full mx-auto mt-4" />
-                        )}
-                        <div className="mt-4">
-                            <Link href="/" className="text-green-400 hover:underline">Go to Homepage</Link>
-                        </div>
-                        <button
-                            type="button"
-                            className="mt-4 w-full bg-green-400 text-black p-3 rounded-lg hover:bg-green-500 transition duration-300"
-                            onClick={handleSignOut}
-                        >
-                            Sign Out
-                        </button>
-                    </div>
-                ) : (
-                    <div className="text-center">
-                        <button
-                            type="button"
-                            className="w-full bg-green-400 text-black p-3 rounded-lg hover:bg-green-500 transition duration-300"
-                            onClick={handleSignIn}
-                        >
-                            Sign In with GitHub
-                        </button>
-                    </div>
-                )}
+    const imageUrl = URL.createObjectURL(file);
+    setImagePreview(imageUrl);
+
+    router.push(`/process?imageUrl=${encodeURIComponent(imageUrl)}`);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/upload");
+    xhr.send(formData);
+  };
+
+  // Handle sign-in with GitHub
+  const handleSignIn = async () => {
+    try {
+      await gitHubSignIn(); // Trigger GitHub sign-in from the context
+    } catch (error) {
+      console.error("Error during sign-in:", error);
+    }
+  };
+
+  // Handle sign-out
+  const handleSignOut = async () => {
+    try {
+      await firebaseSignOut(); // Sign out using the context
+      router.push("/signin"); // Redirect to the sign-in page after signing out
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
+  return (
+    <div className="relative flex justify-center items-center min-h-screen bg-[#121212] text-[#D1D1D1]">
+      {/* Conditionally render Sign In or Profile Picture with Sign Out */}
+      <div className="absolute top-4 right-4 flex items-center space-x-4">
+        {user ? (
+          <div className="flex items-center space-x-4">
+            <img
+              src={user.photoURL || "/default-avatar.png"}
+              alt="User Profile"
+              className="w-10 h-10 rounded-full"
+            />
+            <p className="text-white">{user.displayName || user.email}</p>
+            <button
+              onClick={handleSignOut}
+              className="bg-[#FF3B3B] text-black px-4 py-2 rounded-full hover:bg-[#FF2A2A] transition duration-300"
+            >
+              Sign Out
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleSignIn}
+            className="bg-[#00FFAB] text-black px-6 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300"
+          >
+            Sign In with GitHub
+          </button>
+        )}
+      </div>
+
+      {/* Upload Section */}
+      <div className="bg-[#181818] p-8 rounded-xl shadow-lg text-center space-y-6 w-full max-w-md">
+        <h1 className="text-3xl font-semibold text-[#00FFAB]">Welcome to Auto Digitizing</h1>
+        <p className="text-lg">Drag & drop an image, or browse to upload.</p>
+
+        {/* File Upload Section */}
+        <div
+          className="upload-box border-2 border-dashed border-[#00FFAB] p-10 text-center cursor-pointer transition-colors duration-300 hover:border-[#00E39E] hover:bg-[#1E1E1E]"
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {!file ? (
+            <div>
+              <p className="mb-2">Drag & Drop your image here</p>
+              <p>or</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="file-input hidden"
+                accept="image/*"
+                onChange={handleFileSelect}
+              />
+              <button
+                className="text-[#00FFAB] underline hover:text-[#00E39E] focus:outline-none"
+                onClick={() => fileInputRef.current.click()}
+              >
+                Browse Files
+              </button>
+              <h3 className="text-sm text-gray-400 mt-4">Max File Size: 1GB</h3>
+              <h6 className="text-xs text-gray-500">By proceeding, you agree to our terms of use.</h6>
             </div>
-        </main>
-    );
+          ) : (
+            <div>
+              <p className="text-gray-300">File selected: {file.name}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Image Preview */}
+        {imagePreview && (
+          <div className="mt-4">
+            <img
+              src={imagePreview}
+              alt="Preview"
+              className="max-w-full h-auto rounded-lg shadow-md border border-gray-700"
+            />
+          </div>
+        )}
+
+        {/* Progress Bar */}
+        {isUploading && (
+          <div className="mt-4">
+            <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+              <div
+                className="bg-[#00FFAB] h-2 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+            <p className="text-sm text-[#D1D1D1] mt-2">{Math.round(progress)}%</p>
+          </div>
+        )}
+
+        {/* Loading Spinner */}
+        {isUploading && (
+          <div className="mt-4">
+            <div className="animate-spin h-12 w-12 border-4 border-t-4 border-[#00FFAB] rounded-full mx-auto"></div>
+          </div>
+        )}
+
+        {/* Message */}
+        <p className="text-lg text-[#D1D1D1] mt-4">{message}</p>
+      </div>
+    </div>
+  );
 }
