@@ -134,7 +134,7 @@ export async function convertImageToDSB(imageData, palette, width, height) {
       }
 
       // Generate and add stitches for this region
-      const stitches = generateFillStitches(region);
+      const stitches = floodFill(imageData);
       for (const stitch of stitches) {
         dsb.addStitch(stitch.x, stitch.y, stitch.command);
       }
@@ -152,46 +152,6 @@ export async function convertImageToDSB(imageData, palette, width, height) {
     console.error("Error converting image to DSB:", error);
     throw error;
   }
-}
-
-async function processImageRegions(imagePixels, width, height, palette) {
-  // Create 2D array of pixel colors
-  const pixels = new Array(height);
-  for (let y = 0; y < height; y++) {
-    pixels[y] = new Array(width);
-    for (let x = 0; x < width; x++) {
-      const i = (y * width + x) * 4;
-      const rgb = `rgb(${imagePixels[i]},${imagePixels[i + 1]},${
-        imagePixels[i + 2]
-      })`;
-      // Find closest palette color
-      const colorIndex = findClosestColor(rgb, palette);
-      pixels[y][x] = { color: colorIndex, processed: false };
-    }
-  }
-
-  // Find regions starting from bottom-left
-  const regions = [];
-  for (let x = 0; x < width; x++) {
-    for (let y = height - 1; y >= 0; y--) {
-      if (!pixels[y][x].processed) {
-        const region = floodFill(
-          pixels,
-          x,
-          y,
-          pixels[y][x].color,
-          width,
-          height
-        );
-        regions.push(region);
-      }
-    }
-  }
-
-  // Sort regions by color to minimize color switches
-  regions.sort((a, b) => a.color - b.color);
-
-  return regions;
 }
 
 /**
@@ -240,24 +200,61 @@ async function processImageRegions(imagePixels, width, height, palette) {
  * actually be created.
  */
 
-function floodFill(colors, width, height, image) {
-  return region;
+async function floodFill(image) {
+  let stitches = [];
+
+  // Extract raw pixel data from image
+  const { data, info } = await sharp(image)
+  .raw()
+  .toBuffer({ resolveWithObject: true });
+
+  // First pass: collect unique colors
+  const uniqueColors = new Set();
+  for (let y = 0; y < info.height; y++) {
+    for (let x = 0; x < info.width; x++) {
+        const idx = (y * info.width + x) * info.channels;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const a = info.channels === 4 ? data[idx + 3] : 255;
+        const colorKey = `${r},${g},${b},${a}`;
+        uniqueColors.add(colorKey);
+    }
+  }
+
+  // Create a map to store our 2D arrays, one for each unique color
+  const colorArrays = {};
+
+  // Initialize 2D arrays for each color with zeros
+  uniqueColors.forEach(color => {
+    colorArrays[color] = Array(info.height).fill().map(() => 
+        Array(info.width).fill(0)
+    );
+  });
+
+  // Second pass: fill in the arrays
+  for (let y = 0; y < info.height; y++) {
+    for (let x = 0; x < info.width; x++) {
+        const idx = (y * info.width + x) * info.channels;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const a = info.channels === 4 ? data[idx + 3] : 255;
+        const currentColorKey = `${r},${g},${b},${a}`;
+        
+        // Set 1 in the appropriate array for this color
+        colorArrays[currentColorKey][y][x] = 1;
+    }
+  }
+
+  // Convert the map to an array of 2D arrays
+  for (const region of Object.values(colorArrays)){
+    stitches.push(floodFill(region))
+  }
+
+  return stitches;
+
 }
-
-function findClosestColor(rgb, palette) {}
-/**
-   * stitch format
-   * 
-   * stitches.push({
-        command: DSB_COMMANDS.STITCH,
-        y: y * STITCH_SPACING + (isUp ? STITCH_HEIGHT_OFFSET : -STITCH_HEIGHT_OFFSET),
-        x: x * STITCH_SPACING
-    });
-
-
-    STITCH_HEIGHT_OFFSET == 3 units
-
-   */
 
 /**
  * This method makes a single pixel.
