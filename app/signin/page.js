@@ -1,73 +1,107 @@
-"use client"; // Ensures this component is client-side
+"use client";
 
 import { useState, useRef } from "react";
-import { useRouter } from "next/navigation"; // For client-side navigation
-import Link from "next/link"; // For routing links
-import "/app/globals.css"; // Importing global CSS for styling
+import { useRouter } from "next/navigation";
+import { useUserAuth } from "./_utils/auth-context"; // Assuming you have this context
+import "/app/globals.css";
 
 export default function FileUploadPage() {
-  const [file, setFile] = useState(null); // State to hold the selected file
-  const [message, setMessage] = useState(""); // Message to display file upload status
-  const [isUploading, setIsUploading] = useState(false); // Track upload state for loader
-  const [progress, setProgress] = useState(0); // Progress bar percentage
-  const [imagePreview, setImagePreview] = useState(null); // Preview of the selected image
-  const fileInputRef = useRef(null); // Reference for the hidden file input
-  const router = useRouter(); // Initialize the useRouter hook
+  const { user, gitHubSignIn, firebaseSignOut } = useUserAuth(); // Access user and auth functions
+  const [file, setFile] = useState(null);
+  const [message, setMessage] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [imagePreview, setImagePreview] = useState(null);
+  const fileInputRef = useRef(null);
+  const router = useRouter();
 
-  // Handle file selection (either through input or drag-and-drop)
   const handleFileSelect = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
-      setFile(selectedFile); // Update file state
-      setImagePreview(URL.createObjectURL(selectedFile)); // Show preview
-      uploadFile(selectedFile); // Upload the file immediately
+      setFile(selectedFile);
+      setImagePreview(URL.createObjectURL(selectedFile));
+      uploadFile(selectedFile);
     }
   };
 
   const handleDragOver = (e) => {
-    e.preventDefault(); // Prevent default drag behavior
+    e.preventDefault();
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
-      setFile(droppedFile); // Update file state
-      setImagePreview(URL.createObjectURL(droppedFile)); // Show preview
-      uploadFile(droppedFile); // Upload the file immediately
+      setFile(droppedFile);
+      setImagePreview(URL.createObjectURL(droppedFile));
+      uploadFile(droppedFile);
     }
   };
 
-  // Handle file upload logic
   const uploadFile = (file) => {
     setMessage("Uploading...");
     setIsUploading(true);
     setProgress(0);
 
-    // Create local image URL
     const imageUrl = URL.createObjectURL(file);
     setImagePreview(imageUrl);
 
-    // Redirect to process page immediately with the image URL
     router.push(`/process?imageUrl=${encodeURIComponent(imageUrl)}`);
 
-    // Optional: You can still send to server in background if needed
     const formData = new FormData();
     formData.append("file", file);
-    
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/upload");
+    xhr.send(formData);
+  };
+
+  // Handle sign-in with GitHub
+  const handleSignIn = async () => {
+    try {
+      await gitHubSignIn(); // Trigger GitHub sign-in from the context
+    } catch (error) {
+      console.error("Error during sign-in:", error);
+    }
+  };
+
+  // Handle sign-out
+  const handleSignOut = async () => {
+    try {
+      await firebaseSignOut(); // Sign out using the context
+      router.push("/signin"); // Redirect to the sign-in page after signing out
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
 
   return (
     <div className="relative flex justify-center items-center min-h-screen bg-[#121212] text-[#D1D1D1]">
-      {/* Sign In Button */}
-      <div className="absolute top-4 right-4">
-        <Link href="/signin">
+      {/* Conditionally render Sign In or Profile Picture with Sign Out */}
+      <div className="absolute top-4 right-4 flex items-center space-x-4">
+        {user ? (
+          <div className="flex items-center space-x-4">
+            <img
+              src={user.photoURL || "/default-avatar.png"}
+              alt="User Profile"
+              className="w-10 h-10 rounded-full"
+            />
+            <p className="text-white">{user.displayName || user.email}</p>
+            <button
+              onClick={handleSignOut}
+              className="bg-[#FF3B3B] text-black px-4 py-2 rounded-full hover:bg-[#FF2A2A] transition duration-300"
+            >
+              Sign Out
+            </button>
+          </div>
+        ) : (
           <button
+            onClick={handleSignIn}
             className="bg-[#00FFAB] text-black px-6 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300"
           >
-            Sign In
+            Sign In with GitHub
           </button>
-        </Link>
+        )}
       </div>
 
       {/* Upload Section */}
@@ -145,3 +179,4 @@ export default function FileUploadPage() {
     </div>
   );
 }
+"sign in"
