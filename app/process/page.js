@@ -1,7 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { processImage } from "./imageProcessor";
+import { processImage } from "./ImageProcessor";
+import  Pixelit from './pixelit';
+import quantize from 'quantize';
 import "/app/globals.css";
 
 export default function ProcessingPage() {
@@ -62,21 +64,14 @@ export default function ProcessingPage() {
   useEffect(() => {
     if (originalWidth && originalHeight) {
       const aspectRatio = originalWidth / originalHeight;
-
-      const targetWidth = size * PPI; 
-      const targetHeight = targetWidth / aspectRatio;
-
-      const minPixels = 238;
-      const maxPixels = 635;
-      const sliderRange = 8 - 3; 
-      const pixelRange = maxPixels - minPixels;
-
-      const normalized = (size - 3) / sliderRange;
-      const displayPixelWidth = Math.round(minPixels + normalized * pixelRange);
-      const displayPixelHeight = Math.round(displayPixelWidth / aspectRatio);
-
-      setDisplayWidth(displayPixelWidth);
-      setDisplayHeight(displayPixelHeight);
+      const targetPixels = size * PPI;
+      
+      // Allow upscaling by removing Math.min
+      const displayPixelWidth = targetPixels; 
+      const displayPixelHeight = displayPixelWidth / aspectRatio;
+  
+      setDisplayWidth(Math.round(displayPixelWidth));
+      setDisplayHeight(Math.round(displayPixelHeight));
     }
   }, [size, originalWidth, originalHeight]);
 
@@ -94,29 +89,65 @@ export default function ProcessingPage() {
     router.push(`/finished?imageUrl=${processedImageUrl}`);
   };
 
+  // using the PIXELIT.js library to create our image.
+  // Used Deepseek v3 to assist with coding 
   const handlePreview = async () => {
     if (!imageUrl || isProcessing) return;
-
+  
     setIsProcessing(true);
     try {
-      console.log('Starting preview generation...');
-      const result = await processImage(imageUrl, {
-        colors: parseInt(colors),
-        width: displayWidth,
-        height: displayHeight,
-        ppi: PPI,
-      });
-      console.log('Preview generated successfully');
-      setCurrentDisplayedImage(result.processedImageUrl);
-      setCurrentPalette(result.palette || []);
-      setImageVersion(prev => prev + 1);
       const img = new Image();
-      img.onload = () => console.log('Processed image loaded successfully');
-      img.onerror = () => console.error('Failed to load processed image');
-      img.src = result.processedImageUrl;
+      img.crossOrigin = "anonymous";
+      img.src = imageUrl;
+  
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+  
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = displayWidth;
+      canvas.height = displayHeight;
+      
+      // Draw original image to canvas first
+      ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
+  
+      // Create Pixelit instance
+      const pixelitInstance = new Pixelit({
+        from: img,
+        to: canvas,
+        scale: size * 5, // Connect scale to size slider, 5 seems like the magic number for now
+      });
+  
+      // Generate dynamic palette
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const pixels = [];
+      for (let i = 0; i < imageData.data.length; i += 4) {
+        pixels.push([imageData.data[i], imageData.data[i+1], imageData.data[i+2]]);
+      }
+      
+      const colorMap = quantize(pixels, parseInt(colors));
+      const dynamicPalette = colorMap?.palette() || [];
+      pixelitInstance.setPalette(dynamicPalette);
+  
+      // Process image
+      pixelitInstance
+      .setMaxWidth(displayWidth)  // Set max width based on displayWidth
+      .setMaxHeight(displayHeight) // Set max height based on displayHeight
+      .pixelate()
+      .convertPalette()
+      .resizeImage();
+  
+      // Update display
+      setCurrentDisplayedImage(canvas.toDataURL());
+      setCurrentPalette(dynamicPalette.map(color => 
+        `rgb(${color[0]}, ${color[1]}, ${color[2]})`
+      ));
+  
     } catch (error) {
-      console.error('Preview generation failed:', error);
-      alert(`Failed to generate preview: ${error.message}`);
+      console.error("Preview error:", error);
+      alert("Error generating preview");
     } finally {
       setIsProcessing(false);
     }
@@ -173,14 +204,14 @@ export default function ProcessingPage() {
                   className="text-[#00FFAB] text-left w-full font-semibold"
                   onClick={() => setIsColorsOpen(!isColorsOpen)}
                 >
-                  Colors Adjustment
+                  Color Adjustment
                 </button>
                 {isColorsOpen && (
                   <div className="space-y-4">
-                    <label className="block text-[#D1D1D1]">Colors (1-13)</label>
+                    <label className="block text-[#D1D1D1]">Colors (2-13)</label>
                     <input
                       type="range"
-                      min="1"
+                      min="2"
                       max="13"
                       value={colors}
                       onChange={(e) => setColors(e.target.value)}
