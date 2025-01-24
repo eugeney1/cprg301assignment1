@@ -13,8 +13,9 @@ const DSB_COMMANDS = {
 };
 
 const STITCH_HEIGHT_OFFSET = 3; // Units to move up/down between stitches
+const MAX_JUMP = 255;
 
-class DSBWriter {
+export class DSBWriter {
   constructor() {
     this.buffer = []; 
     this.currentX = 0;
@@ -64,7 +65,6 @@ class DSBWriter {
   // Assume we are starting the design in the top left
   addInitialJumps(startX, startY) {
     // Calculate number of jumps needed (max jump is 255 units due to unsigned byte)
-    const MAX_JUMP = 255;
     let remainingX = startX;
     let remainingY = startY;
 
@@ -98,45 +98,27 @@ class DSBWriter {
   }
 }
 
-export async function convertImageToDSB(imageData, palette, width, height) {
+export async function convertImageToDSB(imageData) {
   const dsb = new DSBWriter();
 
   try {
-    // Process regions and get starting position
-    const regions = await processImageRegions(
-      imageData,
-      width,
-      height,
-      palette
-    );
+    // Generate and add stitches for this region
+    const regions = await floodFill(imageData);
 
-    if (regions.length === 0) {
-      throw new Error("No regions found in image");
-    }
+    const totalRegions = regions.length;
+    regions.forEach((region, index) => {
+      processRegion(region);
+      setProcessingProgress(Math.round((index / totalRegions) * 100));
+    });
 
-    // Find starting position (bottom left of first region)
-    const firstRegion = regions[0];
-    const startX = firstRegion.minX * STITCH_SPACING;
-    const startY = firstRegion.maxY * STITCH_SPACING;
-
-    // Add initial positioning jumps
-    dsb.addInitialJumps(startX, startY);
-
-    // Process each region
-    for (let i = 0; i < regions.length; i++) {
-      const region = regions[i];
-
-      // Add color change if not first region
-      if (i > 0) {
-        dsb.addStitch(dsb.currentX, dsb.currentY, DSB_COMMANDS.COLOR_CHANGE);
-        // Add a single stitch after color change as required
-        dsb.addStitch(dsb.currentX, dsb.currentY, DSB_COMMANDS.STITCH);
-      }
+    for (const region of regions) {
+      // Add color change command for each region
+      dsb.buffer.push(DSB_COMMANDS.COLOR_CHANGE, 0, 0);
 
       // Generate and add stitches for this region
-      const stitches = floodFill(imageData);
+      const stitches = generateFillStitches(region);
       for (const stitch of stitches) {
-        dsb.addStitch(stitch.x, stitch.y, stitch.command);
+        dsb.buffer.push(stitch.command, stitch.x, stitch.y)
       }
     }
 
@@ -152,13 +134,12 @@ export async function convertImageToDSB(imageData, palette, width, height) {
     console.error("Error converting image to DSB:", error);
     throw error;
   }
+
 }
 
 /**
  *
- * @param {*} colors
- * @param {*} width
- * @param {*} height
+ * 
  * @param {*} image
  * @returns
  *
@@ -201,7 +182,7 @@ export async function convertImageToDSB(imageData, palette, width, height) {
  */
 
 async function floodFill(image) {
-  let stitches = [];
+  let regions = [];
 
   // Extract raw pixel data from image
   const { data, info } = await sharp(image)
@@ -248,11 +229,9 @@ async function floodFill(image) {
   }
 
   // Convert the map to an array of 2D arrays
-  for (const region of Object.values(colorArrays)){
-    stitches.push(floodFill(region))
-  }
+  regions = Object.values(colorArrays);
 
-  return stitches;
+  return regions;
 
 }
 
@@ -337,7 +316,7 @@ function generateFillStitches(region) {
   for (let y = 0; y < region.length; y++) {
     for (let x = 0; x < region[y].length; x++) {
       //add a pixel to be embroidered
-      if (region[y[x] == 1]) {
+      if (region[y][x] == 1) {
         stitches.push(generatePixel());
       } else {
         // skip a pixel space
@@ -379,9 +358,20 @@ function generateFillStitches(region) {
   return stitches;
 }
 
-export async function downloadDSB(imageUrl, palette, width, height) {
+export async function downloadDSB(imageUrl) {
   try {
-    const dsbBlob = await convertImageToDSB(imageUrl, palette, width, height);
+    const worker = new Worker('./worker.js');
+    worker.postMessage({ imageUrl });
+
+    const dsbBlob = await new Promise((resolve, reject) => {
+      worker.onmessage = (e) => {
+        const regions = e.data.regions;
+        const dsb = new DSBWriter();
+        // Process regions and create blob
+        resolve(finalBlob);
+      };
+      worker.onerror = reject;
+    });
 
     // Create download link
     const url = URL.createObjectURL(dsbBlob);

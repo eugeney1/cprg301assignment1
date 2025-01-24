@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { processImage } from "./ImageProcessor";
+import { DSBWriter } from './imageConvert';
 import  Pixelit from './pixelit';
 import quantize from 'quantize';
 import "/app/globals.css";
@@ -28,6 +28,8 @@ export default function ProcessingPage() {
   const [isFiltersOpen, setIsFiltersOpen] = useState(true);
   const [isSizeOpen, setIsSizeOpen] = useState(true);
   const [isColorsOpen, setIsColorsOpen] = useState(true);
+
+  const [processingProgress, setProcessingProgress] = useState(0);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -85,8 +87,48 @@ export default function ProcessingPage() {
   };
 
   const handleConvert = async () => {
-    const processedImageUrl = encodeURIComponent(currentDisplayedImage);
-    router.push(`/finished?imageUrl=${processedImageUrl}`);
+    setIsProcessing(true);
+    try {
+      const worker = new Worker(new URL('../public/worker.js', import.meta.url));
+      worker.postMessage({ imageData: currentDisplayedImage });
+  
+      const dsbBlob = await new Promise((resolve, reject) => {
+        worker.onmessage = (e) => {
+          const regions = e.data.regions;
+  
+          // Use DSBWriter to process regions
+          const dsb = new DSBWriter();
+          for (const region of regions) {
+            dsb.buffer.push(DSB_COMMANDS.COLOR_CHANGE, 0, 0);
+            const stitches = generateFillStitches(region);
+            for (const stitch of stitches) {
+              dsb.buffer.push(stitch.command, stitch.x, stitch.y);
+            }
+          }
+  
+          dsb.finalize();
+          resolve(dsb);
+        };
+        worker.onerror = (error) => {
+          reject(error);
+        };
+      });
+  
+      // Create download link
+      const url = URL.createObjectURL(dsbBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "embroidery.dsb";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Conversion error:", error);
+      alert("Error during conversion");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // using the PIXELIT.js library to create our image.
