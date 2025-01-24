@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "canvas": "^3.1.0",
+    "firebase": "^11.2.0",
     "next": "15.0.3",
     "quantize": "^1.0.2",
     "react": "19.0.0-rc-66855b96-20241106",
