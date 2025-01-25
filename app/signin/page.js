@@ -15,6 +15,8 @@ export default function FileUploadPage() {
   const fileInputRef = useRef(null);
   const router = useRouter();
 
+  const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false); // Modal visibility state
+
   const handleFileSelect = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
@@ -65,6 +67,16 @@ export default function FileUploadPage() {
     }
   };
 
+  // Open the sign-out modal
+  const openSignOutModal = () => {
+    setIsSignOutModalOpen(true);
+  };
+
+  // Close the sign-out modal
+  const closeSignOutModal = () => {
+    setIsSignOutModalOpen(false);
+  };
+
   // Handle sign-out
   const handleSignOut = async () => {
     try {
@@ -73,6 +85,7 @@ export default function FileUploadPage() {
     } catch (error) {
       console.error("Error signing out:", error);
     }
+    closeSignOutModal(); // Close the modal after signing out
   };
 
   return (
@@ -88,7 +101,7 @@ export default function FileUploadPage() {
             />
             <p className="text-white">{user.displayName || user.email}</p>
             <button
-              onClick={handleSignOut}
+              onClick={openSignOutModal} // Open the modal on sign out button click
               className="bg-[#FF3B3B] text-black px-4 py-2 rounded-full hover:bg-[#FF2A2A] transition duration-300"
             >
               Sign Out
@@ -176,7 +189,29 @@ export default function FileUploadPage() {
         {/* Message */}
         <p className="text-lg text-[#D1D1D1] mt-4">{message}</p>
       </div>
+
+      {/* Sign-Out Modal */}
+      {isSignOutModalOpen && (
+        <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50">
+          <div className="bg-[#181818] p-6 rounded-lg shadow-lg text-center w-1/3">
+            <h3 className="text-xl text-[#D1D1D1] mb-4">Are you sure you want to sign out?</h3>
+            <div className="space-x-4">
+              <button
+                onClick={handleSignOut}
+                className="bg-[#FF3B3B] text-black px-4 py-2 rounded-full hover:bg-[#FF2A2A] transition duration-300"
+              >
+                Yes, Sign Out
+              </button>
+              <button
+                onClick={closeSignOutModal}
+                className="bg-[#00FFAB] text-black px-4 py-2 rounded-full hover:bg-[#00E39E] transition duration-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-"sign in"

@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { processImage } from "./ImageProcessor";
 import  Pixelit from './pixelit';
 import quantize from 'quantize';
 import "/app/globals.css";
