@@ -6,6 +6,8 @@ import "/app/globals.css"; // Importing global CSS for styling
 export default function FinishPage() {
   const [imageUrl, setImageUrl] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [blobDsbUrl, setBlobDsbUrl] = useState(null); // Blob URL for .dsb download
+  const [blobPngUrl, setBlobPngUrl] = useState(null); // Blob URL for .png download
 
   // Retrieve the processed image URL from query params
   useEffect(() => {
@@ -17,6 +19,29 @@ export default function FinishPage() {
       setLoading(false);
     }
   }, []); // Empty dependency array ensures this runs only once after initial render
+
+  // Create .dsb and .png Blob URLs once the image URL is set
+  useEffect(() => {
+    if (imageUrl) {
+      fetch(imageUrl)
+        .then((response) => response.blob()) // Convert the image data to a blob
+        .then((blob) => {
+          // Create a Blob for .dsb file
+          const blobWithDsbExtension = new Blob([blob], { type: "application/octet-stream" });
+          const dsbUrl = URL.createObjectURL(blobWithDsbExtension);
+          setBlobDsbUrl(dsbUrl);
+
+          // Create a Blob for .png file
+          const blobWithPngExtension = new Blob([blob], { type: "image/png" });
+          const pngUrl = URL.createObjectURL(blobWithPngExtension);
+          setBlobPngUrl(pngUrl);
+        })
+        .catch((error) => {
+          console.error("Error fetching or creating Blob URLs:", error);
+          alert("Failed to prepare the download files.");
+        });
+    }
+  }, [imageUrl]);
 
   // Handle image load complete
   const handleImageLoad = () => {
@@ -40,13 +65,25 @@ export default function FinishPage() {
             {loading ? (
               <div className="mt-4 text-[#00FFAB]">Loading your image...</div> // Show loading message while image is loading
             ) : (
-              <a
-                href={imageUrl}
-                download
-                className="mt-4 inline-block text-[#00FFAB] text-lg underline"
-              >
-                Download Processed Image
-              </a>
+              <div className="space-y-4">
+                {/* Button to download .dsb file */}
+                <a
+                  href={blobDsbUrl} // Download the .dsb Blob URL
+                  download="processed-image.dsb" // Set the file name and extension
+                  className="block text-[#00FFAB] text-lg underline"
+                >
+                  Download as .dsb File
+                </a>
+
+                {/* Button to download .png file */}
+                <a
+                  href={blobPngUrl} // Download the .png Blob URL
+                  download="processed-image.png" // Set the file name and extension
+                  className="block text-[#00FFAB] text-lg underline"
+                >
+                  Download as .png File
+                </a>
+              </div>
             )}
           </div>
         ) : (
