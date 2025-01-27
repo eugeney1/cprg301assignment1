@@ -2,11 +2,12 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useUserAuth } from "./_utils/auth-context"; // Assuming you have this context
+import { useUserAuth } from "./_utils/auth-context";
+import Link from "next/link";
 import "/app/globals.css";
 
 export default function FileUploadPage() {
-  const { user, gitHubSignIn, firebaseSignOut } = useUserAuth(); // Access user and auth functions
+  const { user, gitHubSignIn, firebaseSignOut } = useUserAuth();
   const [file, setFile] = useState(null);
   const [message, setMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -15,7 +16,11 @@ export default function FileUploadPage() {
   const fileInputRef = useRef(null);
   const router = useRouter();
 
-  const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false); // Modal visibility state
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);
+  };
 
   const handleFileSelect = (e) => {
     const selectedFile = e.target.files[0];
@@ -58,59 +63,60 @@ export default function FileUploadPage() {
     xhr.send(formData);
   };
 
-  // Handle sign-in with GitHub
   const handleSignIn = async () => {
     try {
-      await gitHubSignIn(); // Trigger GitHub sign-in from the context
+      await gitHubSignIn();
     } catch (error) {
       console.error("Error during sign-in:", error);
     }
   };
 
-  // Open the sign-out modal
-  const openSignOutModal = () => {
-    setIsSignOutModalOpen(true);
-  };
-
-  // Close the sign-out modal
-  const closeSignOutModal = () => {
-    setIsSignOutModalOpen(false);
-  };
-
-  // Handle sign-out
   const handleSignOut = async () => {
     try {
-      await firebaseSignOut(); // Sign out using the context
-      router.push("/signin"); // Redirect to the sign-in page after signing out
+      await firebaseSignOut();
+      router.push("/signin");
     } catch (error) {
       console.error("Error signing out:", error);
     }
-    closeSignOutModal(); // Close the modal after signing out
   };
 
   return (
     <div className="relative flex justify-center items-center min-h-screen bg-[#121212] text-[#D1D1D1]">
-      {/* Conditionally render Sign In or Profile Picture with Sign Out */}
-      <div className="absolute top-4 right-4 flex items-center space-x-4">
+      {/* Navigation */}
+      <div className="absolute top-4 right-4">
         {user ? (
-          <div className="flex items-center space-x-4">
-            <img
-              src={user.photoURL || "/default-avatar.png"}
-              alt="User Profile"
-              className="w-10 h-10 rounded-full"
-            />
-            <p className="text-white">{user.displayName || user.email}</p>
-            <button
-              onClick={openSignOutModal} // Open the modal on sign out button click
-              className="bg-[#FF3B3B] text-black px-4 py-2 rounded-full hover:bg-[#FF2A2A] transition duration-300"
+          <div className="relative">
+            <div
+              className="flex items-center space-x-2 cursor-pointer"
+              onClick={toggleDropdown}
             >
-              Sign Out
-            </button>
+              <img
+                src={user.photoURL || "/default-avatar.png"}
+                alt="User Profile"
+                className="w-8 h-8 rounded-full border border-gray-600"
+              />
+            </div>
+            {isDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-[#181818] rounded-lg shadow-lg">
+                <Link
+                  href="/signin/settings"
+                  className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]"
+                >
+                  Settings
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="block w-full text-left px-4 py-2 text-sm text-[#FF3B3B] hover:bg-[#1E1E1E]"
+                >
+                  Sign Out
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <button
             onClick={handleSignIn}
-            className="bg-[#00FFAB] text-black px-6 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300"
+            className="bg-[#00FFAB] text-black px-4 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300"
           >
             Sign In with GitHub
           </button>
@@ -189,29 +195,6 @@ export default function FileUploadPage() {
         {/* Message */}
         <p className="text-lg text-[#D1D1D1] mt-4">{message}</p>
       </div>
-
-      {/* Sign-Out Modal */}
-      {isSignOutModalOpen && (
-        <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50">
-          <div className="bg-[#181818] p-6 rounded-lg shadow-lg text-center w-1/3">
-            <h3 className="text-xl text-[#D1D1D1] mb-4">Are you sure you want to sign out?</h3>
-            <div className="space-x-4">
-              <button
-                onClick={handleSignOut}
-                className="bg-[#FF3B3B] text-black px-4 py-2 rounded-full hover:bg-[#FF2A2A] transition duration-300"
-              >
-                Yes, Sign Out
-              </button>
-              <button
-                onClick={closeSignOutModal}
-                className="bg-[#00FFAB] text-black px-4 py-2 rounded-full hover:bg-[#00E39E] transition duration-300"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
