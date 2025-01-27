@@ -87,7 +87,7 @@ export default function FinishPage() {
             )}
           </div>
         ) : (
-          <p className="text-[#D1D1D1]">Image not found. Please try again later.</p>
+          <p className="text-[#D1D1D1]">Image not found.</p>
         )}
       </div>
     </div>
