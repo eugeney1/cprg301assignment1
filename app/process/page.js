@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { SketchPicker } from "react-color"; // Importing the color picker
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Pixelit from './pixelit';
+import { downloadDSB } from './imageConvert';
+import  Pixelit from './pixelit';
 import quantize from 'quantize';
 import "/app/globals.css";
 
@@ -30,8 +31,11 @@ export default function ProcessingPage() {
   const [selectedColorIndex, setSelectedColorIndex] = useState(null); // For selecting a specific color
   const [showColorPicker, setShowColorPicker] = useState(false); // For showing the color picker
 
+  const [processingProgress, setProcessingProgress] = useState(0);
+
   const router = useRouter();
   const searchParams = useSearchParams();
+  const imageFilter = `hue-rotate(${hue}deg) saturate(${saturation}%) brightness(${brightness}%) contrast(${contrast}%)`;
 
   const PPI = 300;
 
@@ -45,7 +49,7 @@ export default function ProcessingPage() {
       img.onload = () => {
         setImageUrl(decodedUrl);
         setCurrentDisplayedImage(decodedUrl);
-        setOriginalImage(decodedUrl);
+        setOriginalImage(decodedUrl); 
         setOriginalWidth(img.width);
         setOriginalHeight(img.height);
         setDisplayWidth(img.width);
@@ -62,7 +66,7 @@ export default function ProcessingPage() {
     if (originalWidth && originalHeight) {
       const aspectRatio = originalWidth / originalHeight;
       const targetPixels = size * PPI;
-      const displayPixelWidth = targetPixels;
+      const displayPixelWidth = targetPixels; 
       const displayPixelHeight = displayPixelWidth / aspectRatio;
       setDisplayWidth(Math.round(displayPixelWidth));
       setDisplayHeight(Math.round(displayPixelHeight));
@@ -84,8 +88,20 @@ export default function ProcessingPage() {
   };
 
   const handleConvert = async () => {
-    const processedImageUrl = encodeURIComponent(currentDisplayedImage);
-    router.push(`/finished?imageUrl=${processedImageUrl}`);
+    setIsProcessing(true);
+    try {
+      if (!currentDisplayedImage) {
+        throw new Error("No image to convert");
+      }
+      
+      // Simply call the downloadDSB function with the image URL
+      await downloadDSB(currentDisplayedImage);
+    } catch (error) {
+      console.error("Conversion error:", error);
+      alert("Error during conversion: " + error.message);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handlePreview = async () => {
@@ -131,12 +147,21 @@ export default function ProcessingPage() {
         .pixelate()
         .convertPalette()
         .resizeImage();
-
       setCurrentDisplayedImage(canvas.toDataURL());
       setCurrentPalette(dynamicPalette.map(color => 
         `rgb(${color[0]}, ${color[1]}, ${color[2]})`
       ));
 
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const objectUrl = URL.createObjectURL(blob); 
+          setCurrentDisplayedImage(objectUrl); 
+        }
+      }, "image/png");
+
+      setCurrentPalette(
+        dynamicPalette.map((color) => `rgb(${color[0]}, ${color[1]}, ${color[2]})`)
+      );
     } catch (error) {
       alert("Error generating preview");
     } finally {
@@ -204,6 +229,14 @@ export default function ProcessingPage() {
 
   const imageFilter = `hue-rotate(${hue}deg) saturate(${saturation}%) brightness(${brightness}%) contrast(${contrast}%)`;
 
+    setCurrentDisplayedImage(originalImage); 
+    setHue(0); 
+    setSaturation(100);
+    setBrightness(100);
+    setContrast(100);
+    setColors(7); 
+  };
+
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-[#121212] text-[#D1D1D1]">
       {/* Navigation Bar */}
@@ -248,6 +281,154 @@ export default function ProcessingPage() {
                   color={livePalette[selectedColorIndex]}
                   onChange={(newColor) => handleColorChange(newColor)}
                 />
+            <div className="w-64 flex flex-col justify-between">
+              <div className="space-y-4">
+                <button
+                  className="text-[#00FFAB] text-left w-full font-semibold"
+                  onClick={() => setIsColorsOpen(!isColorsOpen)}
+                >
+                  Color Adjustment
+                </button>
+                {isColorsOpen && (
+                  <div className="space-y-4">
+                    <label className="block text-[#D1D1D1]">Colors (2-13)</label>
+                    <input
+                      type="range"
+                      min="2"
+                      max="13"
+                      value={colors}
+                      onChange={(e) => setColors(e.target.value)}
+                      className="w-full accent-[#00FFAB]"
+                    />
+                    <div className="text-sm text-[#00FFAB]">Value: {colors}</div>
+                    <div className="mt-4">
+                      <div className="text-sm text-[#D1D1D1] mb-2">Current Colors:</div>
+                      <div className="flex flex-wrap gap-1">
+                        {currentPalette.slice(0, parseInt(colors)).map((color, index) => (
+                          <div
+                            key={index}
+                            className="w-4 h-4 rounded-sm shadow-sm border border-gray-700"
+                            style={{
+                              backgroundColor: color,
+                              filter: `hue-rotate(${hue}deg) saturate(${saturation}%) brightness(${brightness}%) contrast(${contrast}%)`
+                            }}
+                            title={color}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-4">
+                <button
+                  className="text-[#00FFAB] text-left w-full font-semibold"
+                  onClick={() => setIsSizeOpen(!isSizeOpen)}
+                >
+                  Size Adjustment
+                </button>
+                {isSizeOpen && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[#D1D1D1]">Size</label>
+                      <button
+                        onClick={() => setIsMetric(!isMetric)}
+                        className="text-xs text-[#00FFAB] hover:text-[#00E39E]"
+                      >
+                        {isMetric ? "Switch to Imperial" : "Switch to Metric"}
+                      </button>
+                    </div>
+                    <input
+                      type="range"
+                      min="3"
+                      max="8"
+                      step="0.1"
+                      value={size}
+                      onChange={(e) => setSize(parseFloat(e.target.value))}
+                      className="w-full accent-[#00FFAB]"
+                    />
+                    <div className="text-sm text-[#00FFAB] space-y-1">
+                      <div>Width: {formatDimension(displayWidth)}</div>
+                      <div>Height: {formatDimension(displayHeight)}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-4">
+                <button
+                  className="text-[#00FFAB] text-left w-full font-semibold"
+                  onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+                >
+                  Filter Adjustment
+                </button>
+                {isFiltersOpen && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="block text-[#D1D1D1]">Hue</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="360"
+                        value={hue}
+                        onChange={(e) => setHue(e.target.value)}
+                        className="w-full accent-[#00FFAB]"
+                      />
+                      <div className="text-sm text-[#00FFAB]">Value: {hue}°</div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-[#D1D1D1]">Saturation</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="200"
+                        value={saturation}
+                        onChange={(e) => setSaturation(e.target.value)}
+                        className="w-full accent-[#00FFAB]"
+                      />
+                      <div className="text-sm text-[#00FFAB]">Value: {saturation}%</div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-[#D1D1D1]">Brightness</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="200"
+                        value={brightness}
+                        onChange={(e) => setBrightness(e.target.value)}
+                        className="w-full accent-[#00FFAB]"
+                      />
+                      <div className="text-sm text-[#00FFAB]">Value: {brightness}%</div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-[#D1D1D1]">Contrast</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="200"
+                        value={contrast}
+                        onChange={(e) => setContrast(e.target.value)}
+                        className="w-full accent-[#00FFAB]"
+                      />
+                      <div className="text-sm text-[#00FFAB]">Value: {contrast}%</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-3 mt-6">
+                <button
+                  onClick={handlePreview}
+                  disabled={isProcessing}
+                  className={`w-full ${isProcessing ? 'bg-gray-500 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600'} text-[#D1D1D1] px-6 py-2 rounded-lg transition-colors duration-300`}
+                >
+                  {isProcessing ? 'Processing...' : 'Generate Preview'}
+                </button>
+                <button
+                  onClick={handleConvert}
+                  disabled={isProcessing}
+                  className={`w-full ${isProcessing ? 'bg-[#007755] cursor-not-allowed' : 'bg-[#00FFAB] hover:bg-[#00E39E]'} text-black px-6 py-2 rounded-lg transition-colors duration-300`}
+                >
+                  {isProcessing ? 'Processing...' : 'Convert'}
+                </button>
                 <button
                   onClick={handleColorChangeComplete}
                   className="mt-2 bg-green-500 text-white px-4 py-2 rounded-lg"

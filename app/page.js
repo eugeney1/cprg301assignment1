@@ -55,9 +55,6 @@ export default function FileUploadPage() {
     const formData = new FormData();
     formData.append("file", file);
     
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/upload");
-    xhr.send(formData);
   };
 
   return (
