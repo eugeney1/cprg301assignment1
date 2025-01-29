@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Pixelit from './pixelit';
+import { downloadDSB } from './imageConvert';
+import  Pixelit from './pixelit';
 import quantize from 'quantize';
 import "/app/globals.css";
 
@@ -27,6 +28,8 @@ export default function ProcessingPage() {
   const [isFiltersOpen, setIsFiltersOpen] = useState(true);
   const [isSizeOpen, setIsSizeOpen] = useState(true);
   const [isColorsOpen, setIsColorsOpen] = useState(true);
+
+  const [processingProgress, setProcessingProgress] = useState(0);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -81,8 +84,20 @@ export default function ProcessingPage() {
   };
 
   const handleConvert = async () => {
-    const processedImageUrl = encodeURIComponent(currentDisplayedImage);
-    router.push(`/finished?imageUrl=${processedImageUrl}`);
+    setIsProcessing(true);
+    try {
+      if (!currentDisplayedImage) {
+        throw new Error("No image to convert");
+      }
+      
+      // Simply call the downloadDSB function with the image URL
+      await downloadDSB(currentDisplayedImage);
+    } catch (error) {
+      console.error("Conversion error:", error);
+      alert("Error during conversion: " + error.message);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handlePreview = async () => {
