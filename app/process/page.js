@@ -155,6 +155,14 @@ export default function ProcessingPage() {
         .convertPalette()
         .resizeImage();
 
+      // Chatgpt// // asked it how to changed based 64(url) to blob(url)//
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const objectUrl = URL.createObjectURL(blob); 
+          setCurrentDisplayedImage(objectUrl); 
+        }
+      }, "image/png");
+
       setCurrentDisplayedImage(canvas.toDataURL()); // Update displayed image
       setCurrentPalette(dynamicPalette.map(color => `rgb(${color[0]}, ${color[1]}, ${color[2]})`)); // Update palette
 
