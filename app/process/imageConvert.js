@@ -13,6 +13,9 @@ const DSB_COMMANDS = {
 };
 
 const STITCH_HEIGHT_OFFSET = 3; // Units to move up/down between stitches
+const MAX_JUMP = 255;
+
+export { DSBWriter, downloadDSB, convertImageToDSB };
 
 class DSBWriter {
   constructor() {
@@ -31,11 +34,12 @@ class DSBWriter {
     const header = new Uint8Array(512); // 512-byte header
     const encoder = new TextEncoder();
 
-    // Format label - first 20 bytes
-    const label = "LA:~temp.qe DSC.QEP";
-    encoder.encodeInto(label, header);
+    // 1. Label with newline (20 bytes total)
+    const label = "LA:~temp.qe DSC.QEP\n"; // <-- Added \n
+    let result = encoder.encodeInto(label, header.subarray(0, 20)); // Write to first 20 bytes
+    let offset = result.written; // Track actual bytes used (should be 20)
 
-    // Format the header info with proper spacing
+    // 2. Header lines to write
     const headerInfo = [
       `ST:      ${this.stitchCount}`,
       `CO:  ${this.colorChanges}`,
@@ -47,24 +51,22 @@ class DSBWriter {
       `AY:+    ${this.currentY}`,
     ];
 
-    // Write each line of header info starting at byte 20
-    let offset = 20;
+    // 3. Write each line after the label
     for (const line of headerInfo) {
-      encoder.encodeInto(line + "\n", header.subarray(offset));
-      offset += line.length + 1; // +1 for \n
+      result = encoder.encodeInto(line + "\n", header.subarray(offset));
+      offset += result.written; // Update offset based on bytes actually written
     }
 
-    // Fill remaining bytes with space
+    // 4. Fill remaining space
     header.fill(0x20, offset, 512);
 
     return header;
-  }
+}
 
   // Initial positioning jumps to get to start position
   // Assume we are starting the design in the top left
   addInitialJumps(startX, startY) {
     // Calculate number of jumps needed (max jump is 255 units due to unsigned byte)
-    const MAX_JUMP = 255;
     let remainingX = startX;
     let remainingY = startY;
 
@@ -98,46 +100,24 @@ class DSBWriter {
   }
 }
 
-export async function convertImageToDSB(imageData, palette, width, height) {
+async function convertImageToDSB(imageData) {
   const dsb = new DSBWriter();
 
   try {
-    // Process regions and get starting position
-    const regions = await processImageRegions(
-      imageData,
-      width,
-      height,
-      palette
-    );
+    // Generate and add stitches for this region
+    const regions = await floodFill(imageData);
 
-    if (regions.length === 0) {
-      throw new Error("No regions found in image");
-    }
+    const totalRegions = regions.length;
 
-    // Find starting position (bottom left of first region)
-    const firstRegion = regions[0];
-    const startX = firstRegion.minX * STITCH_SPACING;
-    const startY = firstRegion.maxY * STITCH_SPACING;
-
-    // Add initial positioning jumps
-    dsb.addInitialJumps(startX, startY);
-
-    // Process each region
-    for (let i = 0; i < regions.length; i++) {
-      const region = regions[i];
-
-      // Add color change if not first region
-      if (i > 0) {
-        dsb.addStitch(dsb.currentX, dsb.currentY, DSB_COMMANDS.COLOR_CHANGE);
-        // Add a single stitch after color change as required
-        dsb.addStitch(dsb.currentX, dsb.currentY, DSB_COMMANDS.STITCH);
-      }
+    for (const region of regions) {
+      // Add color change command for each region
+      dsb.buffer.push(DSB_COMMANDS.COLOR_CHANGE, 0, 0);
 
       // Generate and add stitches for this region
-      const stitches = floodFill(imageData);
-      for (const stitch of stitches) {
-        dsb.addStitch(stitch.x, stitch.y, stitch.command);
-      }
+      const stitches = generateFillStitches(region);
+      stitches.forEach(stitch => {
+          dsb.buffer.push(stitch.command, stitch.x, stitch.y);
+      });
     }
 
     const dsbFile = dsb.finalize();
@@ -147,18 +127,18 @@ export async function convertImageToDSB(imageData, palette, width, height) {
       type: "application/octet-stream",
     });
 
+    console.log("Final File:", finalFile);
     return finalFile;
   } catch (error) {
     console.error("Error converting image to DSB:", error);
     throw error;
   }
+
 }
 
 /**
  *
- * @param {*} colors
- * @param {*} width
- * @param {*} height
+ * 
  * @param {*} image
  * @returns
  *
@@ -200,60 +180,53 @@ export async function convertImageToDSB(imageData, palette, width, height) {
  * actually be created.
  */
 
-async function floodFill(image) {
-  let stitches = [];
-
-  // Extract raw pixel data from image
-  const { data, info } = await sharp(image)
-  .raw()
-  .toBuffer({ resolveWithObject: true });
+// In imageConvert.js
+async function floodFill(imageData) { // Accept ImageData directly
+  let regions = [];
+  const data = imageData.data;
+  const width = imageData.width;
+  const height = imageData.height;
 
   // First pass: collect unique colors
   const uniqueColors = new Set();
-  for (let y = 0; y < info.height; y++) {
-    for (let x = 0; x < info.width; x++) {
-        const idx = (y * info.width + x) * info.channels;
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
-        const a = info.channels === 4 ? data[idx + 3] : 255;
-        const colorKey = `${r},${g},${b},${a}`;
-        uniqueColors.add(colorKey);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      const a = data[idx + 3];
+      const colorKey = `${r},${g},${b},${a}`;
+      uniqueColors.add(colorKey);
     }
   }
 
-  // Create a map to store our 2D arrays, one for each unique color
+  // Create a map to store 2D arrays for each color
   const colorArrays = {};
 
-  // Initialize 2D arrays for each color with zeros
+  // Initialize 2D arrays with zeros
   uniqueColors.forEach(color => {
-    colorArrays[color] = Array(info.height).fill().map(() => 
-        Array(info.width).fill(0)
+    colorArrays[color] = Array(height).fill().map(() => 
+      Array(width).fill(0)
     );
   });
 
-  // Second pass: fill in the arrays
-  for (let y = 0; y < info.height; y++) {
-    for (let x = 0; x < info.width; x++) {
-        const idx = (y * info.width + x) * info.channels;
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
-        const a = info.channels === 4 ? data[idx + 3] : 255;
-        const currentColorKey = `${r},${g},${b},${a}`;
-        
-        // Set 1 in the appropriate array for this color
-        colorArrays[currentColorKey][y][x] = 1;
+  // Second pass: fill the arrays
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      const a = data[idx + 3];
+      const currentColorKey = `${r},${g},${b},${a}`;
+
+      colorArrays[currentColorKey][y][x] = 1;
     }
   }
 
-  // Convert the map to an array of 2D arrays
-  for (const region of Object.values(colorArrays)){
-    stitches.push(floodFill(region))
-  }
-
-  return stitches;
-
+  regions = Object.values(colorArrays);
+  return regions;
 }
 
 /**
@@ -337,7 +310,7 @@ function generateFillStitches(region) {
   for (let y = 0; y < region.length; y++) {
     for (let x = 0; x < region[y].length; x++) {
       //add a pixel to be embroidered
-      if (region[y[x] == 1]) {
+      if (region[y][x] == 1) {
         stitches.push(generatePixel());
       } else {
         // skip a pixel space
@@ -379,12 +352,58 @@ function generateFillStitches(region) {
   return stitches;
 }
 
-export async function downloadDSB(imageUrl, palette, width, height) {
+async function downloadDSB(imageUrl) {
   try {
-    const dsbBlob = await convertImageToDSB(imageUrl, palette, width, height);
+    // 1. Fetch the image
+    const response = await fetch(imageUrl);
+    const imageBlob = await response.blob();
+    
+    // 2. Convert blob to ImageData
+    const imageData = await new Promise((resolve) => {
+      const img = new Image();
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
 
-    // Create download link
-    const url = URL.createObjectURL(dsbBlob);
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        resolve(ctx.getImageData(0, 0, img.width, img.height));
+      };
+      
+      img.src = URL.createObjectURL(imageBlob);
+    });
+
+    // 3. Process directly in main thread
+    const dsb = new DSBWriter();
+    let pixel = generatePixel();
+    for (const command of pixel){
+      console.log(command);
+      dsb.buffer.push(command[0]);
+      dsb.buffer.push(command[1]);
+      dsb.buffer.push(command[2]);
+    }
+    
+    /*
+    const regions = await floodFill(imageData);
+    
+    for (const region of regions) {
+      dsb.buffer.push(DSB_COMMANDS.COLOR_CHANGE, 0, 0);
+      const stitches = generateFillStitches(region);
+      stitches.forEach(stitch => {
+        dsb.buffer.push(stitch.command, stitch.x, stitch.y);
+      });
+    }
+    */
+
+    // 4. Create final blob
+    const dsbFile = dsb.finalize();
+    const finalBlob = new Blob([dsbFile.header, dsbFile.data], {
+      type: "application/octet-stream",
+    });
+
+    // 5. Create download link
+    const url = URL.createObjectURL(finalBlob);
     const a = document.createElement("a");
     a.href = url;
     a.download = "embroidery.dsb";
