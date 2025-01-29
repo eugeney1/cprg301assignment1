@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { DSBWriter } from './imageConvert';
+import { downloadDSB } from './imageConvert';
 import  Pixelit from './pixelit';
 import quantize from 'quantize';
 import "/app/globals.css";
@@ -89,43 +89,15 @@ export default function ProcessingPage() {
   const handleConvert = async () => {
     setIsProcessing(true);
     try {
-      const worker = new Worker(new URL('../public/worker.js', import.meta.url));
-      worker.postMessage({ imageData: currentDisplayedImage });
-  
-      const dsbBlob = await new Promise((resolve, reject) => {
-        worker.onmessage = (e) => {
-          const regions = e.data.regions;
-  
-          // Use DSBWriter to process regions
-          const dsb = new DSBWriter();
-          for (const region of regions) {
-            dsb.buffer.push(DSB_COMMANDS.COLOR_CHANGE, 0, 0);
-            const stitches = generateFillStitches(region);
-            for (const stitch of stitches) {
-              dsb.buffer.push(stitch.command, stitch.x, stitch.y);
-            }
-          }
-  
-          dsb.finalize();
-          resolve(dsb);
-        };
-        worker.onerror = (error) => {
-          reject(error);
-        };
-      });
-  
-      // Create download link
-      const url = URL.createObjectURL(dsbBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "embroidery.dsb";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      if (!currentDisplayedImage) {
+        throw new Error("No image to convert");
+      }
+      
+      // Simply call the downloadDSB function with the image URL
+      await downloadDSB(currentDisplayedImage);
     } catch (error) {
       console.error("Conversion error:", error);
-      alert("Error during conversion");
+      alert("Error during conversion: " + error.message);
     } finally {
       setIsProcessing(false);
     }
