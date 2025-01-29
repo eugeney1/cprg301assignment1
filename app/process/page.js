@@ -129,6 +129,7 @@ export default function ProcessingPage() {
         .convertPalette()
         .resizeImage();
 
+      // Chatgpt// // asked it how to changed based 64(url) to blob(url)//
       canvas.toBlob((blob) => {
         if (blob) {
           const objectUrl = URL.createObjectURL(blob); 
