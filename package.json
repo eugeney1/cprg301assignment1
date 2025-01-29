@@ -9,11 +9,16 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@chakra-ui/react": "^3.5.1",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
     "canvas": "^3.1.0",
     "firebase": "^11.2.0",
-    "next": "15.0.3",
+    "framer-motion": "^12.0.5",
+    "next": "^15.1.6",
     "quantize": "^1.0.2",
     "react": "19.0.0-rc-66855b96-20241106",
+    "react-color": "^2.19.3",
     "react-dom": "19.0.0-rc-66855b96-20241106",
     "sharp": "^0.33.5"
   },
