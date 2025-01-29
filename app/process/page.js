@@ -33,10 +33,10 @@ export default function ProcessingPage() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  const imageFilter = `hue-rotate(${hue}deg) saturate(${saturation}%) brightness(${brightness}%) contrast(${contrast}%)`;
 
   const PPI = 300;
 
-  // Store the original image URL for revert functionality
   const [originalImage, setOriginalImage] = useState(null);
 
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function ProcessingPage() {
         console.log('Image loaded successfully');
         setImageUrl(decodedUrl);
         setCurrentDisplayedImage(decodedUrl);
-        setOriginalImage(decodedUrl); // Store original image URL
+        setOriginalImage(decodedUrl); 
         setOriginalWidth(img.width);
         setOriginalHeight(img.height);
         setDisplayWidth(img.width);
@@ -67,11 +67,8 @@ export default function ProcessingPage() {
     if (originalWidth && originalHeight) {
       const aspectRatio = originalWidth / originalHeight;
       const targetPixels = size * PPI;
-      
-      // Allow upscaling by removing Math.min
       const displayPixelWidth = targetPixels; 
       const displayPixelHeight = displayPixelWidth / aspectRatio;
-  
       setDisplayWidth(Math.round(displayPixelWidth));
       setDisplayHeight(Math.round(displayPixelHeight));
     }
@@ -103,62 +100,60 @@ export default function ProcessingPage() {
     }
   };
 
-  // using the PIXELIT.js library to create our image.
-  // Used Deepseek v3 to assist with coding 
   const handlePreview = async () => {
     if (!imageUrl || isProcessing) return;
-  
+
     setIsProcessing(true);
     try {
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.src = imageUrl;
-  
+
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = reject;
       });
-  
+
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
       canvas.width = displayWidth;
       canvas.height = displayHeight;
-      
-      // Draw original image to canvas first
+
       ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
-  
-      // Create Pixelit instance
+
       const pixelitInstance = new Pixelit({
         from: img,
         to: canvas,
-        scale: size * 5, // Connect scale to size slider, 5 seems like the magic number for now
+        scale: size * 5,
       });
-  
-      // Generate dynamic palette
+
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const pixels = [];
       for (let i = 0; i < imageData.data.length; i += 4) {
-        pixels.push([imageData.data[i], imageData.data[i+1], imageData.data[i+2]]);
+        pixels.push([imageData.data[i], imageData.data[i + 1], imageData.data[i + 2]]);
       }
-      
+
       const colorMap = quantize(pixels, parseInt(colors));
       const dynamicPalette = colorMap?.palette() || [];
       pixelitInstance.setPalette(dynamicPalette);
-  
-      // Process image
+
       pixelitInstance
-      .setMaxWidth(displayWidth)  // Set max width based on displayWidth
-      .setMaxHeight(displayHeight) // Set max height based on displayHeight
-      .pixelate()
-      .convertPalette()
-      .resizeImage();
-  
-      // Update display
-      setCurrentDisplayedImage(canvas.toDataURL());
-      setCurrentPalette(dynamicPalette.map(color => 
-        `rgb(${color[0]}, ${color[1]}, ${color[2]})`
-      ));
-  
+        .setMaxWidth(displayWidth)
+        .setMaxHeight(displayHeight)
+        .pixelate()
+        .convertPalette()
+        .resizeImage();
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const objectUrl = URL.createObjectURL(blob); 
+          setCurrentDisplayedImage(objectUrl); 
+        }
+      }, "image/png");
+
+      setCurrentPalette(
+        dynamicPalette.map((color) => `rgb(${color[0]}, ${color[1]}, ${color[2]})`)
+      );
     } catch (error) {
       console.error("Preview error:", error);
       alert("Error generating preview");
@@ -167,32 +162,15 @@ export default function ProcessingPage() {
     }
   };
 
-  const imageFilter = `hue-rotate(${hue}deg) saturate(${saturation}%) brightness(${brightness}%) contrast(${contrast}%)`;
-
-  const applyFiltersToColor = (color) => {
-    const filter = `hue-rotate(${hue}deg) saturate(${saturation}%) brightness(${brightness}%) contrast(${contrast}%)`;
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    const img = new Image();
-    img.src = color; 
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.filter = filter;
-      ctx.drawImage(img, 0, 0);
-      return canvas.toDataURL(); 
-    };
-  };
-
-  // New Revert function
   const handleRevert = () => {
-    setCurrentDisplayedImage(originalImage); // Revert to original image
-    setHue(0); // Reset any applied filters
+    setCurrentDisplayedImage(originalImage); 
+    setHue(0); 
     setSaturation(100);
     setBrightness(100);
     setContrast(100);
-    setColors(7); // Reset color adjustments
+    setColors(7); 
   };
+
   return (
     <div className="flex justify-center items-center min-h-screen bg-[#121212] text-[#D1D1D1]">
       <div className="bg-[#181818] p-8 rounded-xl shadow-lg text-center w-full max-w-5xl">
@@ -210,9 +188,7 @@ export default function ProcessingPage() {
                 />
               </div>
             </div>
-
             <div className="w-64 flex flex-col justify-between">
-              {/* Color Adjustment */}
               <div className="space-y-4">
                 <button
                   className="text-[#00FFAB] text-left w-full font-semibold"
@@ -232,7 +208,6 @@ export default function ProcessingPage() {
                       className="w-full accent-[#00FFAB]"
                     />
                     <div className="text-sm text-[#00FFAB]">Value: {colors}</div>
-                    {/* Color Swatches */}
                     <div className="mt-4">
                       <div className="text-sm text-[#D1D1D1] mb-2">Current Colors:</div>
                       <div className="flex flex-wrap gap-1">
@@ -252,7 +227,6 @@ export default function ProcessingPage() {
                   </div>
                 )}
               </div>
-              {/* Size Adjustment */}
               <div className="space-y-4">
                 <button
                   className="text-[#00FFAB] text-left w-full font-semibold"
@@ -287,7 +261,6 @@ export default function ProcessingPage() {
                   </div>
                 )}
               </div>
-              {/* Filter Adjustment */}
               <div className="space-y-4">
                 <button
                   className="text-[#00FFAB] text-left w-full font-semibold"
@@ -297,7 +270,6 @@ export default function ProcessingPage() {
                 </button>
                 {isFiltersOpen && (
                   <div className="space-y-4">
-                    {/* Hue Control */}
                     <div className="space-y-2">
                       <label className="block text-[#D1D1D1]">Hue</label>
                       <input
@@ -310,7 +282,6 @@ export default function ProcessingPage() {
                       />
                       <div className="text-sm text-[#00FFAB]">Value: {hue}°</div>
                     </div>
-                    {/* Saturation Control */}
                     <div className="space-y-2">
                       <label className="block text-[#D1D1D1]">Saturation</label>
                       <input
@@ -323,7 +294,6 @@ export default function ProcessingPage() {
                       />
                       <div className="text-sm text-[#00FFAB]">Value: {saturation}%</div>
                     </div>
-                    {/* Brightness Control */}
                     <div className="space-y-2">
                       <label className="block text-[#D1D1D1]">Brightness</label>
                       <input
@@ -336,7 +306,6 @@ export default function ProcessingPage() {
                       />
                       <div className="text-sm text-[#00FFAB]">Value: {brightness}%</div>
                     </div>
-                    {/* Contrast Control */}
                     <div className="space-y-2">
                       <label className="block text-[#D1D1D1]">Contrast</label>
                       <input
@@ -367,7 +336,6 @@ export default function ProcessingPage() {
                 >
                   {isProcessing ? 'Processing...' : 'Convert'}
                 </button>
-                {/* Revert Button */}
                 <button
                   onClick={handleRevert}
                   className="w-full bg-gray-600 hover:bg-gray-500 text-[#D1D1D1] px-6 py-2 rounded-lg transition-colors duration-300"
