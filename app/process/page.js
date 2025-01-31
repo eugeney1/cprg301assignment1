@@ -1,6 +1,6 @@
 /**
  * ChatGPT 
- * Seek Geek  
+ * DeepSeek 
  * react-color table - allows users to edit image colors
  * Author -@ Author jaywcjlove @ <https://github.com/uiwjs/react-color>
  **/
@@ -12,8 +12,8 @@ import { useState, useEffect } from "react"; // For state management and side ef
 import { SketchPicker } from "react-color"; // Color picker component
 import { useRouter, useSearchParams } from "next/navigation"; // For routing and accessing query parameters
 import Link from "next/link"; // For navigation links
-import Pixelit from './pixelit'; // Pixelation library
-import quantize from 'quantize'; // For reducing color palettes
+import Pixelit from "./pixelit"; // Pixelation library
+import quantize from "quantize"; // For reducing color palettes
 import "/app/globals.css"; // Global CSS styling
 
 export default function ProcessingPage() {
@@ -31,6 +31,7 @@ export default function ProcessingPage() {
   const [imageVersion, setImageVersion] = useState(0); // Version to force image refresh
   const [currentPalette, setCurrentPalette] = useState([]); // Final color palette for the image
   const [livePalette, setLivePalette] = useState([]); // Temporary palette for live color editing
+  const [customPaletteActive, setCustomPaletteActive] = useState(false); // Flag indicating a custom palette is in use
 
   // State variables for filter adjustments
   const [hue, setHue] = useState(0); // Hue adjustment (degrees)
@@ -66,7 +67,7 @@ export default function ProcessingPage() {
         setDisplayHeight(img.height);
       };
       img.onerror = () => {
-        alert('Failed to load the image. Please try again with a different image.');
+        alert("Failed to load the image. Please try again with a different image.");
       };
       img.src = decodedUrl; // Set the source of the image to trigger loading
     }
@@ -99,13 +100,77 @@ export default function ProcessingPage() {
     return `${inches.toFixed(2)}" (${pixels}px)`;
   };
 
+  // Helper function to convert a hex color (e.g., "#FF0000") to an RGB array.
+  const hexToRgb = (hex) => {
+    let normalizedHex = hex.replace("#", "");
+    if (normalizedHex.length === 3) {
+      normalizedHex = normalizedHex.split("").map(c => c + c).join("");
+    }
+    const bigint = parseInt(normalizedHex, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return [r, g, b];
+  };
+
+  // Helper function to convert a color string (either "rgb(...)" or hex) to an RGB array.
+  const parseColor = (color) => {
+    if (color.startsWith("rgb(")) {
+      return color.match(/\d+/g).map(Number);
+    } else if (color.startsWith("#")) {
+      return hexToRgb(color);
+    }
+    return color; // fallback in case the format is unexpected
+  };
+
+  // This helper processes the current displayed (pixelated) image by replacing every pixel 
+  // that exactly matches the old color at the given palette index with the new color.
+  const updateImageForChangedPaletteIndex = (index, newColorStr) => {
+    const oldColorStr = currentPalette[index];
+    const oldRGB = parseColor(oldColorStr);
+    const newRGB = parseColor(newColorStr);
+    
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = currentDisplayedImage;
+    
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        // If the pixel exactly matches the old color, replace it with the new color
+        if (
+          data[i] === oldRGB[0] &&
+          data[i + 1] === oldRGB[1] &&
+          data[i + 2] === oldRGB[2]
+        ) {
+          data[i] = newRGB[0];
+          data[i + 1] = newRGB[1];
+          data[i + 2] = newRGB[2];
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+      setCurrentDisplayedImage(canvas.toDataURL());
+    };
+    
+    img.onerror = () => {
+      alert("Failed to update image for palette change.");
+    };
+  };
+
   // Handle the "Convert" button action
   const handleConvert = async () => {
     const processedImageUrl = encodeURIComponent(currentDisplayedImage); // Encode image URL
     router.push(`/finished?imageUrl=${processedImageUrl}`); // Navigate to the "finished" page
   };
 
-  // Handle the "Preview" button action
+  // Handle the "Preview" button action.
+  // If a custom palette is active, it reuses that palette; otherwise, it quantizes the image.
   const handlePreview = async () => {
     if (!imageUrl || isProcessing) return; // Do nothing if no image or already processing
 
@@ -129,25 +194,35 @@ export default function ProcessingPage() {
 
       ctx.drawImage(img, 0, 0, displayWidth, displayHeight); // Draw image on canvas
 
-      // Create a Pixelit instance for pixelation
+      // Create a Pixelit instance for pixelation with a consistent scale
       const pixelitInstance = new Pixelit({
         from: img,
         to: canvas,
-        scale: size * 5, // Scale for pixelation
+        scale: size * 5, // Use the same scale as in other processing functions
       });
 
-      // Extract image data for color quantization
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const pixels = [];
-      for (let i = 0; i < imageData.data.length; i += 4) {
-        pixels.push([imageData.data[i], imageData.data[i + 1], imageData.data[i + 2]]); // RGB values
+      if (customPaletteActive && currentPalette.length > 0) {
+        // Use the custom (manually edited) palette if active
+        pixelitInstance.setPalette(currentPalette.map(color => parseColor(color)));
+      } else {
+        // Quantize the image to generate a new palette
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const pixels = [];
+        for (let i = 0; i < imageData.data.length; i += 4) {
+          pixels.push([
+            imageData.data[i],
+            imageData.data[i + 1],
+            imageData.data[i + 2],
+          ]);
+        }
+        const colorMap = quantize(pixels, parseInt(colors)); // Quantize colors
+        const dynamicPalette = colorMap?.palette() || []; // Generate color palette
+        pixelitInstance.setPalette(dynamicPalette); // Set the palette in Pixelit
+        // Update current palette with the quantized result
+        setCurrentPalette(dynamicPalette.map(color => `rgb(${color[0]}, ${color[1]}, ${color[2]})`));
       }
 
-      const colorMap = quantize(pixels, parseInt(colors)); // Quantize colors
-      const dynamicPalette = colorMap?.palette() || []; // Generate color palette
-      pixelitInstance.setPalette(dynamicPalette); // Set the palette in Pixelit
-
-      // Apply pixelation and color palette conversion
+      // Apply the full processing chain
       pixelitInstance
         .setMaxWidth(displayWidth)
         .setMaxHeight(displayHeight)
@@ -156,7 +231,6 @@ export default function ProcessingPage() {
         .resizeImage();
 
       setCurrentDisplayedImage(canvas.toDataURL()); // Update displayed image
-      setCurrentPalette(dynamicPalette.map(color => `rgb(${color[0]}, ${color[1]}, ${color[2]})`)); // Update palette
 
     } catch (error) {
       alert("Error generating preview");
@@ -173,9 +247,11 @@ export default function ProcessingPage() {
     setBrightness(100); // Reset brightness
     setContrast(100); // Reset contrast
     setColors(7); // Reset color count
+    setCustomPaletteActive(false); // Disable custom palette so quantization will be used next
   };
 
-  // Update the image with a new palette
+  // (Optional) The original updateImageWithNewPalette function remains here
+  // in case you want to reprocess the image from scratch.
   const updateImageWithNewPalette = (updatedPalette) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -192,14 +268,22 @@ export default function ProcessingPage() {
       const pixelitInstance = new Pixelit({
         from: img,
         to: canvas,
-        palette: updatedPalette.map((color) => {
-          const rgb = color.match(/\d+/g).map(Number); // Convert hex to RGB
-          return rgb;
-        }),
+        scale: size * 5,
+        palette: updatedPalette.map((color) => parseColor(color)),
       });
 
-      pixelitInstance.pixelate(); // Apply pixelation
-      setCurrentDisplayedImage(canvas.toDataURL()); // Update displayed image
+      pixelitInstance
+        .setMaxWidth(displayWidth)
+        .setMaxHeight(displayHeight)
+        .pixelate()
+        .convertPalette()
+        .resizeImage();
+
+      setCurrentDisplayedImage(canvas.toDataURL());
+    };
+
+    img.onerror = () => {
+      alert("Failed to load the image for palette update.");
     };
   };
 
@@ -207,19 +291,26 @@ export default function ProcessingPage() {
   const handleColorChange = (newColor) => {
     if (selectedColorIndex === null) return;
 
-    // Update live palette with the new color
+    // Update live palette with the new color (as hex)
     const updatedLivePalette = [...livePalette];
     updatedLivePalette[selectedColorIndex] = newColor.hex;
-
     setLivePalette(updatedLivePalette);
   };
 
-  // Confirm color changes and update the actual palette
+  // Confirm color changes and update the actual palette.
+  // Instead of reprocessing the original image, we update the current (pixelated) image directly.
   const handleColorChangeComplete = () => {
     if (selectedColorIndex === null) return;
 
-    setCurrentPalette(livePalette); // Update current palette
-    updateImageWithNewPalette(livePalette); // Apply new palette
+    const oldColor = currentPalette[selectedColorIndex];  // The color before editing
+    const newColor = livePalette[selectedColorIndex];       // The color chosen by the user
+
+    // Update the palette state and mark custom palette active
+    setCurrentPalette(livePalette);
+    setCustomPaletteActive(true);
+
+    // Directly update the current displayed image's pixel data:
+    updateImageForChangedPaletteIndex(selectedColorIndex, newColor);
 
     setShowColorPicker(false); // Close color picker
     setSelectedColorIndex(null); // Reset selection
@@ -234,7 +325,9 @@ export default function ProcessingPage() {
       <nav className="w-full bg-gray-800 py-4 px-8 flex justify-between items-center shadow-md">
         <h1 className="text-xl font-semibold text-green-400">Image Editor</h1>
         <Link href="/">
-          <button className="bg-[#00FFAB] text-black px-4 py-2 rounded-lg hover:bg-[#00CC8B] transition">Return to Main Page</button>
+          <button className="bg-[#00FFAB] text-black px-4 py-2 rounded-lg hover:bg-[#00CC8B] transition">
+            Return to Main Page
+          </button>
         </Link>
       </nav>
 
@@ -372,16 +465,20 @@ export default function ProcessingPage() {
             <button
               onClick={handlePreview}
               disabled={isProcessing}
-              className={`w-full ${isProcessing ? 'bg-gray-500 cursor-not-allowed' : 'bg-[#00FFAB] hover:bg-[#00E39E]'} text-black px-4 py-2 rounded-lg`}
+              className={`w-full ${
+                isProcessing ? "bg-gray-500 cursor-not-allowed" : "bg-[#00FFAB] hover:bg-[#00E39E]"
+              } text-black px-4 py-2 rounded-lg`}
             >
-              {isProcessing ? 'Processing...' : 'Generate Preview'}
+              {isProcessing ? "Processing..." : "Generate Preview"}
             </button>
             <button
               onClick={handleConvert}
               disabled={isProcessing}
-              className={`w-full ${isProcessing ? 'bg-gray-500 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-400'} text-black px-4 py-2 rounded-lg`}
+              className={`w-full ${
+                isProcessing ? "bg-gray-500 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-400"
+              } text-black px-4 py-2 rounded-lg`}
             >
-              {isProcessing ? 'Processing...' : 'Convert'}
+              {isProcessing ? "Processing..." : "Convert"}
             </button>
             <button
               onClick={handleRevert}
