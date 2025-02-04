@@ -125,6 +125,7 @@ export default function ProcessingPage() {
 
   // This helper processes the current displayed (pixelated) image by replacing every pixel 
   // that exactly matches the old color at the given palette index with the new color.
+
   const updateImageForChangedPaletteIndex = (index, newColorStr) => {
     const oldColorStr = currentPalette[index];
     const oldRGB = parseColor(oldColorStr);
@@ -155,7 +156,15 @@ export default function ProcessingPage() {
         }
       }
       ctx.putImageData(imageData, 0, 0);
-      setCurrentDisplayedImage(canvas.toDataURL());
+
+      // Use canvas.toBlob to create a blob URL instead of a data URL
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const objectUrl = URL.createObjectURL(blob);
+          setCurrentDisplayedImage(objectUrl);
+        }
+      }, "image/png");
+
     };
     
     img.onerror = () => {
@@ -163,10 +172,14 @@ export default function ProcessingPage() {
     };
   };
 
-  // Handle the "Convert" button action
+  // Handle the "Convert" button action.
+  // Here we simply encode the current displayed (processed) image and navigate
+  // to the finished page. Since our processing now produces a blob URL, the finished
+  // page will receive that URL.
+
   const handleConvert = async () => {
-    const processedImageUrl = encodeURIComponent(currentDisplayedImage); // Encode image URL
-    router.push(`/finished?imageUrl=${processedImageUrl}`); // Navigate to the "finished" page
+    const processedImageUrl = encodeURIComponent(currentDisplayedImage);
+    router.push(`/finished?imageUrl=${processedImageUrl}`);
   };
 
   // Handle the "Preview" button action.
@@ -230,15 +243,14 @@ export default function ProcessingPage() {
         .convertPalette()
         .resizeImage();
 
-      // Chatgpt// // asked it how to changed based 64(url) to blob(url)//
+      // Convert the canvas to a blob and use its object URL.
       canvas.toBlob((blob) => {
         if (blob) {
-          const objectUrl = URL.createObjectURL(blob); 
-          setCurrentDisplayedImage(objectUrl); 
+          const objectUrl = URL.createObjectURL(blob);
+          setCurrentDisplayedImage(objectUrl);
         }
       }, "image/png");
 
-      setCurrentDisplayedImage(canvas.toDataURL()); // Update displayed image
 
     } catch (error) {
       alert("Error generating preview");
@@ -258,8 +270,8 @@ export default function ProcessingPage() {
     setCustomPaletteActive(false); // Disable custom palette so quantization will be used next
   };
 
-  // (Optional) The original updateImageWithNewPalette function remains here
-  // in case you want to reprocess the image from scratch.
+  // Update image using a new palette from scratch using blob URL conversion.
+
   const updateImageWithNewPalette = (updatedPalette) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -287,7 +299,13 @@ export default function ProcessingPage() {
         .convertPalette()
         .resizeImage();
 
-      setCurrentDisplayedImage(canvas.toDataURL());
+      // Convert the canvas to a blob and update the displayed image with its blob URL
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const objectUrl = URL.createObjectURL(blob);
+          setCurrentDisplayedImage(objectUrl);
+        }
+      }, "image/png");
     };
 
     img.onerror = () => {
@@ -317,7 +335,8 @@ export default function ProcessingPage() {
     setCurrentPalette(livePalette);
     setCustomPaletteActive(true);
 
-    // Directly update the current displayed image's pixel data:
+    // Directly update the current displayed image's pixel data using blob conversion:
+
     updateImageForChangedPaletteIndex(selectedColorIndex, newColor);
 
     setShowColorPicker(false); // Close color picker
