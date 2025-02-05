@@ -53,7 +53,7 @@ export default function FileUploadPage() {
     const imageUrl = URL.createObjectURL(file);
     setImagePreview(imageUrl);
 
-    router.push(`/process?imageUrl=${encodeURIComponent(imageUrl)}`);
+    router.push(`signin/process?imageUrl=${encodeURIComponent(imageUrl)}`);
 
     const formData = new FormData();
     formData.append("file", file);
