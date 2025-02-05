@@ -307,6 +307,7 @@ export default class pixelit {
           imgPixels.data[i] = finalcolor[0];
           imgPixels.data[i + 1] = finalcolor[1];
           imgPixels.data[i + 2] = finalcolor[2];
+          imgPixels.data[i + 3] = 255; // Set alpha to 255
         }
       }
       this.ctx.putImageData(imgPixels, 0, 0, 0, 0, imgPixels.width, imgPixels.height);
