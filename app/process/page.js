@@ -125,7 +125,7 @@ export default function ProcessingPage() {
 
   // This helper processes the current displayed (pixelated) image by replacing every pixel 
   // that exactly matches the old color at the given palette index with the new color.
-  // Updated to use canvas.toBlob for creating a blob URL.
+
   const updateImageForChangedPaletteIndex = (index, newColorStr) => {
     const oldColorStr = currentPalette[index];
     const oldRGB = parseColor(oldColorStr);
@@ -156,6 +156,7 @@ export default function ProcessingPage() {
         }
       }
       ctx.putImageData(imageData, 0, 0);
+
       // Use canvas.toBlob to create a blob URL instead of a data URL
       canvas.toBlob((blob) => {
         if (blob) {
@@ -163,6 +164,7 @@ export default function ProcessingPage() {
           setCurrentDisplayedImage(objectUrl);
         }
       }, "image/png");
+
     };
     
     img.onerror = () => {
@@ -174,6 +176,7 @@ export default function ProcessingPage() {
   // Here we simply encode the current displayed (processed) image and navigate
   // to the finished page. Since our processing now produces a blob URL, the finished
   // page will receive that URL.
+
   const handleConvert = async () => {
     const processedImageUrl = encodeURIComponent(currentDisplayedImage);
     router.push(`/finished?imageUrl=${processedImageUrl}`);
@@ -248,6 +251,7 @@ export default function ProcessingPage() {
         }
       }, "image/png");
 
+
     } catch (error) {
       alert("Error generating preview");
     } finally {
@@ -267,6 +271,7 @@ export default function ProcessingPage() {
   };
 
   // Update image using a new palette from scratch using blob URL conversion.
+
   const updateImageWithNewPalette = (updatedPalette) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -331,6 +336,7 @@ export default function ProcessingPage() {
     setCustomPaletteActive(true);
 
     // Directly update the current displayed image's pixel data using blob conversion:
+
     updateImageForChangedPaletteIndex(selectedColorIndex, newColor);
 
     setShowColorPicker(false); // Close color picker
