@@ -1,6 +1,6 @@
 /**
- * ChatGPT
- * DeepSeek
+ * ChatGPT 
+ * DeepSeek 
  * react-color table - allows users to edit image colors
  * Author -@ Author jaywcjlove @ <https://github.com/uiwjs/react-color>
  **/
@@ -15,7 +15,7 @@ import Link from "next/link"; // For navigation links
 import Pixelit from "./pixelit"; // Pixelation library
 import quantize from "quantize"; // For reducing color palettes
 import "/app/globals.css"; // Global CSS styling
- 
+
 export default function ProcessingPage() {
   // State variables for managing image properties and user adjustments
   const [imageUrl, setImageUrl] = useState(null); // URL of the uploaded image
@@ -32,12 +32,13 @@ export default function ProcessingPage() {
   const [currentPalette, setCurrentPalette] = useState([]); // Final color palette for the image
   const [livePalette, setLivePalette] = useState([]); // Temporary palette for live color editing
   const [customPaletteActive, setCustomPaletteActive] = useState(false); // Flag indicating a custom palette is in use
- 
+
   // State variables for filter adjustments
   const [hue, setHue] = useState(0); // Hue adjustment (degrees)
   const [saturation, setSaturation] = useState(100); // Saturation adjustment (%)
   const [brightness, setBrightness] = useState(100); // Brightness adjustment (%)
   const [contrast, setContrast] = useState(100); // Contrast adjustment (%)
+
  
   // State for color picker functionality
   const [selectedColorIndex, setSelectedColorIndex] = useState(null); // Index of the selected color in the palette
@@ -52,6 +53,7 @@ export default function ProcessingPage() {
  
   const [originalImage, setOriginalImage] = useState(null); // Stores the unprocessed original image
  
+
   // Load image from URL query parameter
   useEffect(() => {
     const imgUrl = searchParams.get("imageUrl"); // Extract the image URL from query parameters
@@ -74,7 +76,7 @@ export default function ProcessingPage() {
       img.src = decodedUrl; // Set the source of the image to trigger loading
     }
   }, [searchParams]);
- 
+
   // Automatically calculate display dimensions based on the size input
   useEffect(() => {
     if (originalWidth && originalHeight) {
@@ -86,12 +88,12 @@ export default function ProcessingPage() {
       setDisplayHeight(Math.round(displayPixelHeight)); // Update display height
     }
   }, [size, originalWidth, originalHeight]);
- 
+
   // Sync the live palette with the current palette initially
   useEffect(() => {
     setLivePalette(currentPalette);
   }, [currentPalette]);
- 
+
   // Helper function to format dimensions in inches or centimeters
   const formatDimension = (pixels) => {
     const inches = size; // Size in inches
@@ -101,7 +103,7 @@ export default function ProcessingPage() {
     }
     return `${inches.toFixed(2)}" (${pixels}px)`;
   };
- 
+
   // Helper function to convert a hex color (e.g., "#FF0000") to an RGB array.
   const hexToRgb = (hex) => {
     let normalizedHex = hex.replace("#", "");
@@ -113,8 +115,7 @@ export default function ProcessingPage() {
     const g = (bigint >> 8) & 255;
     const b = bigint & 255;
     return [r, g, b];
-  };
- 
+  }; 
   // Calculate the Euclidean distance between two RGB colors
 const getColorDistance = (color1, color2) => {
   return Math.sqrt(
@@ -224,54 +225,54 @@ const findClosestColorIndex = (pickedColor) => {
         }
       }, "image/png");
     };
-  
+
     img.onerror = () => {
       alert("Failed to update image for palette change.");
     };
   };
-  
-  
+
   // Handle the "Convert" button action.
   // Here we simply encode the current displayed (processed) image and navigate
   // to the finished page. Since our processing now produces a blob URL, the finished
   // page will receive that URL.
   const handleConvert = async () => {
     const processedImageUrl = encodeURIComponent(currentDisplayedImage);
-    router.push(`/finished?imageUrl=${processedImageUrl}`);
+    router.push(`/signin/finished?imageUrl=${processedImageUrl}`);
   };
- 
+
   // Handle the "Preview" button action.
   // If a custom palette is active, it reuses that palette; otherwise, it quantizes the image.
   const handlePreview = async () => {
     if (!imageUrl || isProcessing) return; // Do nothing if no image or already processing
- 
+
     setIsProcessing(true); // Set processing state
     try {
       const img = new Image();
       img.crossOrigin = "anonymous"; // Allow cross-origin image loading
       img.src = imageUrl; // Set image source
- 
+
       // Wait for the image to load
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = reject;
       });
- 
+
       // Create a canvas to draw the image
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
       canvas.width = displayWidth;
       canvas.height = displayHeight;
+
  
       ctx.drawImage(img, 0, 0, displayWidth, displayHeight); // Draw image on canvas
- 
+
       // Create a Pixelit instance for pixelation with a consistent scale
       const pixelitInstance = new Pixelit({
         from: img,
         to: canvas,
         scale: size * 5, // Use the same scale as in other processing functions
       });
- 
+
       if (customPaletteActive && currentPalette.length > 0) {
         // Use the custom (manually edited) palette if active
         pixelitInstance.setPalette(currentPalette.map(color => parseColor(color)));
@@ -292,7 +293,7 @@ const findClosestColorIndex = (pickedColor) => {
         // Update current palette with the quantized result
         setCurrentPalette(dynamicPalette.map(color => `rgb(${color[0]}, ${color[1]}, ${color[2]})`));
       }
- 
+
       // Apply the full processing chain
       pixelitInstance
         .setMaxWidth(displayWidth)
@@ -300,7 +301,7 @@ const findClosestColorIndex = (pickedColor) => {
         .pixelate()
         .convertPalette()
         .resizeImage();
- 
+
       // Convert the canvas to a blob and use its object URL.
       canvas.toBlob((blob) => {
         if (blob) {
@@ -308,14 +309,14 @@ const findClosestColorIndex = (pickedColor) => {
           setCurrentDisplayedImage(objectUrl);
         }
       }, "image/png");
- 
+
     } catch (error) {
       alert("Error generating preview");
     } finally {
       setIsProcessing(false); // Reset processing state
     }
   };
- 
+
   // Handle the "Revert" button action
   const handleRevert = () => {
     setCurrentDisplayedImage(originalImage); // Revert to original image
@@ -326,13 +327,13 @@ const findClosestColorIndex = (pickedColor) => {
     setColors(7); // Reset color count
     setCustomPaletteActive(false); // Disable custom palette so quantization will be used next
   };
- 
+
   // Update image using a new palette from scratch using blob URL conversion.
   const updateImageWithNewPalette = (updatedPalette) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const img = new Image();
- 
+
     img.crossOrigin = "anonymous";
     img.src = imageUrl;
  
@@ -340,21 +341,21 @@ const findClosestColorIndex = (pickedColor) => {
       canvas.width = displayWidth;
       canvas.height = displayHeight;
       ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
- 
+
       const pixelitInstance = new Pixelit({
         from: img,
         to: canvas,
         scale: size * 5,
         palette: updatedPalette.map((color) => parseColor(color)),
       });
- 
+
       pixelitInstance
         .setMaxWidth(displayWidth)
         .setMaxHeight(displayHeight)
         .pixelate()
         .convertPalette()
         .resizeImage();
- 
+
       // Convert the canvas to a blob and update the displayed image with its blob URL
       canvas.toBlob((blob) => {
         if (blob) {
@@ -363,23 +364,24 @@ const findClosestColorIndex = (pickedColor) => {
         }
       }, "image/png");
     };
- 
+
     img.onerror = () => {
       alert("Failed to load the image for palette update.");
     };
   };
+
  
   // Handle live color changes in the palette
   const handleColorChange = (newColor) => {
     if (selectedColorIndex === null) return;
-  
+ 
+
+    // Update live palette with the new color (as hex)
     const updatedLivePalette = [...livePalette];
     updatedLivePalette[selectedColorIndex] = newColor.hex;
     setLivePalette(updatedLivePalette);
     setSelectedColor(newColor.hex); // Ensures selectedColor is also updated!
   };
-  
- 
   // Confirm color changes and update the actual palette.
   // Instead of reprocessing the original image, we update the current (pixelated) image directly.
   // Confirm color changes and update the actual palette and image
@@ -417,6 +419,7 @@ const findClosestColorIndex = (pickedColor) => {
   // CSS filter string for applying adjustments
   const imageFilter = `hue-rotate(${hue}deg) saturate(${saturation}%) brightness(${brightness}%) contrast(${contrast}%)`;
  
+
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-[#121212] text-[#D1D1D1]">
       {/* Navigation Bar */}
@@ -428,7 +431,7 @@ const findClosestColorIndex = (pickedColor) => {
           </button>
         </Link>
       </nav>
- 
+
       <div className="flex w-full max-w-7xl gap-6 mt-6">
         {/* Left Side: Adjustments */}
         <div className="w-1/4 space-y-6">
@@ -486,7 +489,7 @@ const findClosestColorIndex = (pickedColor) => {
               </div>
             )}
           </div>
- 
+
           {/* Size Adjustment */}
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Size Adjustment</h2>
@@ -504,7 +507,7 @@ const findClosestColorIndex = (pickedColor) => {
             <p>Height: {formatDimension(displayHeight)}</p>
           </div>
         </div>
- 
+
         {/* Center: Image Preview */}
         <div className="flex-1 flex items-center justify-center">
           <div className="relative">
@@ -516,11 +519,13 @@ const findClosestColorIndex = (pickedColor) => {
             />
           </div>
         </div>
+
  
         {/* Right Side: Filter Adjustments */}
         <div className="w-1/4 space-y-6">
           <h2 className="text-lg font-semibold">Filter Adjustment</h2>
  
+
           <div className="space-y-2">
             <label>Hue</label>
             <input
@@ -533,7 +538,7 @@ const findClosestColorIndex = (pickedColor) => {
             />
             <p>Value: {hue}°</p>
           </div>
- 
+
           <div className="space-y-2">
             <label>Saturation</label>
             <input
@@ -546,7 +551,7 @@ const findClosestColorIndex = (pickedColor) => {
             />
             <p>Value: {saturation}%</p>
           </div>
- 
+
           <div className="space-y-2">
             <label>Brightness</label>
             <input
@@ -559,7 +564,7 @@ const findClosestColorIndex = (pickedColor) => {
             />
             <p>Value: {brightness}%</p>
           </div>
- 
+
           <div className="space-y-2">
             <label>Contrast</label>
             <input
@@ -572,7 +577,7 @@ const findClosestColorIndex = (pickedColor) => {
             />
             <p>Value: {contrast}%</p>
           </div>
- 
+
           <div className="space-y-3">
             <button
               onClick={handlePreview}
@@ -603,4 +608,6 @@ const findClosestColorIndex = (pickedColor) => {
       </div>
     </div>
   );
+
 }
+
