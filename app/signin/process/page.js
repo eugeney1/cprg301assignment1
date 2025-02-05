@@ -4,9 +4,9 @@
  * react-color table - allows users to edit image colors
  * Author -@ Author jaywcjlove @ <https://github.com/uiwjs/react-color>
  **/
-
+ 
 "use client";
-
+ 
 // Importing necessary React hooks and libraries
 import { useState, useEffect } from "react"; // For state management and side effects
 import { SketchPicker } from "react-color"; // Color picker component
@@ -39,16 +39,18 @@ export default function ProcessingPage() {
   const [brightness, setBrightness] = useState(100); // Brightness adjustment (%)
   const [contrast, setContrast] = useState(100); // Contrast adjustment (%)
 
+ 
   // State for color picker functionality
   const [selectedColorIndex, setSelectedColorIndex] = useState(null); // Index of the selected color in the palette
   const [showColorPicker, setShowColorPicker] = useState(false); // Toggle for showing the color picker
-
+ 
   const router = useRouter(); // Router for navigation
   const searchParams = useSearchParams(); // Extract query parameters from the URL
-
+ 
   const PPI = 300; // Pixels per inch for display calculations
-
+ 
   const [originalImage, setOriginalImage] = useState(null); // Stores the unprocessed original image
+ 
 
   // Load image from URL query parameter
   useEffect(() => {
@@ -123,6 +125,7 @@ export default function ProcessingPage() {
     return color; // fallback in case the format is unexpected
   };
 
+
   // This helper processes the current displayed (pixelated) image by replacing every pixel 
   // that exactly matches the old color at the given palette index with the new color.
   // Updated to use canvas.toBlob for creating a blob URL.
@@ -130,13 +133,13 @@ export default function ProcessingPage() {
     const oldColorStr = currentPalette[index];
     const oldRGB = parseColor(oldColorStr);
     const newRGB = parseColor(newColorStr);
-    
+
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.src = currentDisplayedImage;
-    
+
     img.onload = () => {
       canvas.width = img.width;
       canvas.height = img.height;
@@ -164,7 +167,7 @@ export default function ProcessingPage() {
         }
       }, "image/png");
     };
-    
+
     img.onerror = () => {
       alert("Failed to update image for palette change.");
     };
@@ -202,6 +205,7 @@ export default function ProcessingPage() {
       canvas.width = displayWidth;
       canvas.height = displayHeight;
 
+ 
       ctx.drawImage(img, 0, 0, displayWidth, displayHeight); // Draw image on canvas
 
       // Create a Pixelit instance for pixelation with a consistent scale
@@ -274,7 +278,7 @@ export default function ProcessingPage() {
 
     img.crossOrigin = "anonymous";
     img.src = imageUrl;
-
+ 
     img.onload = () => {
       canvas.width = displayWidth;
       canvas.height = displayHeight;
@@ -308,9 +312,11 @@ export default function ProcessingPage() {
     };
   };
 
+ 
   // Handle live color changes in the palette
   const handleColorChange = (newColor) => {
     if (selectedColorIndex === null) return;
+ 
 
     // Update live palette with the new color (as hex)
     const updatedLivePalette = [...livePalette];
@@ -323,22 +329,24 @@ export default function ProcessingPage() {
   const handleColorChangeComplete = () => {
     if (selectedColorIndex === null) return;
 
+ 
     const oldColor = currentPalette[selectedColorIndex];  // The color before editing
     const newColor = livePalette[selectedColorIndex];       // The color chosen by the user
-
+ 
     // Update the palette state and mark custom palette active
     setCurrentPalette(livePalette);
     setCustomPaletteActive(true);
-
+ 
     // Directly update the current displayed image's pixel data using blob conversion:
     updateImageForChangedPaletteIndex(selectedColorIndex, newColor);
-
+ 
     setShowColorPicker(false); // Close color picker
     setSelectedColorIndex(null); // Reset selection
   };
-
+ 
   // CSS filter string for applying adjustments
   const imageFilter = `hue-rotate(${hue}deg) saturate(${saturation}%) brightness(${brightness}%) contrast(${contrast}%)`;
+ 
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-[#121212] text-[#D1D1D1]">
@@ -426,9 +434,11 @@ export default function ProcessingPage() {
           </div>
         </div>
 
+ 
         {/* Right Side: Filter Adjustments */}
         <div className="w-1/4 space-y-6">
           <h2 className="text-lg font-semibold">Filter Adjustment</h2>
+ 
 
           <div className="space-y-2">
             <label>Hue</label>
@@ -512,4 +522,6 @@ export default function ProcessingPage() {
       </div>
     </div>
   );
+
 }
+
