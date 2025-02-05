@@ -179,7 +179,7 @@ export default function ProcessingPage() {
   // page will receive that URL.
   const handleConvert = async () => {
     const processedImageUrl = encodeURIComponent(currentDisplayedImage);
-    router.push(`/finished?imageUrl=${processedImageUrl}`);
+    router.push(`/signin/finished?imageUrl=${processedImageUrl}`);
   };
 
   // Handle the "Preview" button action.
