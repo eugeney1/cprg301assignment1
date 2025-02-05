@@ -43,8 +43,6 @@ export default function ProcessingPage() {
   // State for color picker functionality
   const [selectedColorIndex, setSelectedColorIndex] = useState(null); // Index of the selected color in the palette
   const [showColorPicker, setShowColorPicker] = useState(false); // Toggle for showing the color picker
-  const [selectedColor, setSelectedColor] = useState("#000000"); // New state for the color picker pen
-
  
   const router = useRouter(); // Router for navigation
   const searchParams = useSearchParams(); // Extract query parameters from the URL
@@ -115,33 +113,7 @@ export default function ProcessingPage() {
     const g = (bigint >> 8) & 255;
     const b = bigint & 255;
     return [r, g, b];
-  }; 
-  // Calculate the Euclidean distance between two RGB colors
-const getColorDistance = (color1, color2) => {
-  return Math.sqrt(
-    Math.pow(color1[0] - color2[0], 2) +
-    Math.pow(color1[1] - color2[1], 2) +
-    Math.pow(color1[2] - color2[2], 2)
-  );
-};
-
-// Find the closest color from the current palette
-const findClosestColorIndex = (pickedColor) => {
-  const pickedRgb = parseColor(pickedColor); // Convert picked color to RGB
-  let closestIndex = 0;
-  let minDistance = Infinity;
-
-  currentPalette.forEach((paletteColor, index) => {
-    const paletteRgb = parseColor(paletteColor);
-    const distance = getColorDistance(pickedRgb, paletteRgb);
-    if (distance < minDistance) {
-      minDistance = distance;
-      closestIndex = index;
-    }
-  });
-
-  return closestIndex;
-};
+  };
 
   // Helper function to convert a color string (either "rgb(...)" or hex) to an RGB array.
   const parseColor = (color) => {
@@ -152,50 +124,30 @@ const findClosestColorIndex = (pickedColor) => {
     }
     return color; // fallback in case the format is unexpected
   };
- 
-  const handleColorPick = async () => {
-    if (window.EyeDropper) {
-      const eyeDropper = new window.EyeDropper();
-      try {
-        const result = await eyeDropper.open();
-        const pickedColor = result.sRGBHex; // Get exact picked color
-  
-        setSelectedColor(pickedColor); // Store picked color
-        setShowColorPicker(true); // Open react-color table
-  
-      } catch (error) {
-        console.error("Color picking canceled or failed", error);
-      }
-    } else {
-      alert("Your browser does not support the EyeDropper API.");
-    }
-  };
-  
-  
-  
 
-  // This helper processes the current displayed (pixelated) image by replacing every pixel
+
+  // This helper processes the current displayed (pixelated) image by replacing every pixel 
   // that exactly matches the old color at the given palette index with the new color.
   // Updated to use canvas.toBlob for creating a blob URL.
-  const updateImageForChangedPaletteIndex = (oldColorStr, newColorStr) => {
-    const oldRGB = parseColor(oldColorStr); // Convert old color to RGB
-    const newRGB = parseColor(newColorStr); // Convert new color to RGB
-  
+  const updateImageForChangedPaletteIndex = (index, newColorStr) => {
+    const oldColorStr = currentPalette[index];
+    const oldRGB = parseColor(oldColorStr);
+    const newRGB = parseColor(newColorStr);
+
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = currentDisplayedImage; // Use the current displayed image
-  
+    img.src = currentDisplayedImage;
+
     img.onload = () => {
       canvas.width = img.width;
       canvas.height = img.height;
       ctx.drawImage(img, 0, 0);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
-  
-      // Replace all instances of the exact picked color
       for (let i = 0; i < data.length; i += 4) {
+        // If the pixel exactly matches the old color, replace it with the new color
         if (
           data[i] === oldRGB[0] &&
           data[i + 1] === oldRGB[1] &&
@@ -206,9 +158,8 @@ const findClosestColorIndex = (pickedColor) => {
           data[i + 2] = newRGB[2];
         }
       }
-  
-      // Apply the updated image and refresh UI
       ctx.putImageData(imageData, 0, 0);
+      // Use canvas.toBlob to create a blob URL instead of a data URL
       canvas.toBlob((blob) => {
         if (blob) {
           const objectUrl = URL.createObjectURL(blob);
@@ -375,37 +326,24 @@ const findClosestColorIndex = (pickedColor) => {
 
   // Confirm color changes and update the actual palette.
   // Instead of reprocessing the original image, we update the current (pixelated) image directly.
-  // Confirm color changes and update the actual palette and image
   const handleColorChangeComplete = () => {
-    if (!selectedColor) return;
-  
-    const oldColor = selectedColor;  // The exact color picked from the screen
-    const newColor = livePalette[selectedColorIndex]; // The user-selected color from the table
-  
-    // Ensure the picked color replaces the old one in the palette
-    setCurrentPalette((prevPalette) => {
-      const updatedPalette = [...prevPalette];
-      updatedPalette[selectedColorIndex] = newColor;
-      return updatedPalette;
-    });
-  
-    // Ensure livePalette updates correctly
-    setLivePalette((prevLivePalette) => {
-      const updatedLivePalette = [...prevLivePalette];
-      updatedLivePalette[selectedColorIndex] = newColor;
-      return updatedLivePalette;
-    });
-  
-    // Update the image pixels to reflect the color change
-    updateImageForChangedPaletteIndex(oldColor, newColor);
-  
-    // Reset UI state
-    setShowColorPicker(false);
-    setSelectedColor(null);
-    setSelectedColorIndex(null);
+    if (selectedColorIndex === null) return;
+
+ 
+    const oldColor = currentPalette[selectedColorIndex];  // The color before editing
+    const newColor = livePalette[selectedColorIndex];       // The color chosen by the user
+ 
+    // Update the palette state and mark custom palette active
+    setCurrentPalette(livePalette);
+    setCustomPaletteActive(true);
+ 
+    // Directly update the current displayed image's pixel data using blob conversion:
+    updateImageForChangedPaletteIndex(selectedColorIndex, newColor);
+ 
+    setShowColorPicker(false); // Close color picker
+    setSelectedColorIndex(null); // Reset selection
   };
-  
-  
+ 
   // CSS filter string for applying adjustments
   const imageFilter = `hue-rotate(${hue}deg) saturate(${saturation}%) brightness(${brightness}%) contrast(${contrast}%)`;
  
@@ -462,20 +400,6 @@ const findClosestColorIndex = (pickedColor) => {
                 >
                   Done
                 </button>
-                <button 
-                   onClick={handleColorPick} 
-                   className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                >
-                   Pick Color from Screen
-                </button>
-                <div className="mt-4 flex items-center gap-2">
-                   <p>Picked Color:</p>
-                   <div 
-                       className="w-10 h-10 border border-gray-300" 
-                       style={{ backgroundColor: selectedColor }} 
-                   />
-                </div>
-
               </div>
             )}
           </div>
