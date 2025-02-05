@@ -125,7 +125,7 @@ export default function ProcessingPage() {
  
   // This helper processes the current displayed (pixelated) image by replacing every pixel
   // that exactly matches the old color at the given palette index with the new color.
-
+  // Updated to use canvas.toBlob for creating a blob URL.
   const updateImageForChangedPaletteIndex = (index, newColorStr) => {
     const oldColorStr = currentPalette[index];
     const oldRGB = parseColor(oldColorStr);
@@ -156,7 +156,6 @@ export default function ProcessingPage() {
         }
       }
       ctx.putImageData(imageData, 0, 0);
-
       // Use canvas.toBlob to create a blob URL instead of a data URL
       canvas.toBlob((blob) => {
         if (blob) {
@@ -164,19 +163,17 @@ export default function ProcessingPage() {
           setCurrentDisplayedImage(objectUrl);
         }
       }, "image/png");
-
     };
    
     img.onerror = () => {
       alert("Failed to update image for palette change.");
     };
   };
-
+ 
   // Handle the "Convert" button action.
   // Here we simply encode the current displayed (processed) image and navigate
   // to the finished page. Since our processing now produces a blob URL, the finished
   // page will receive that URL.
-
   const handleConvert = async () => {
     const processedImageUrl = encodeURIComponent(currentDisplayedImage);
     router.push(`/finished?imageUrl=${processedImageUrl}`);
@@ -242,7 +239,7 @@ export default function ProcessingPage() {
         .pixelate()
         .convertPalette()
         .resizeImage();
-
+ 
       // Convert the canvas to a blob and use its object URL.
       canvas.toBlob((blob) => {
         if (blob) {
@@ -250,7 +247,7 @@ export default function ProcessingPage() {
           setCurrentDisplayedImage(objectUrl);
         }
       }, "image/png");
-
+ 
     } catch (error) {
       alert("Error generating preview");
     } finally {
@@ -270,7 +267,6 @@ export default function ProcessingPage() {
   };
  
   // Update image using a new palette from scratch using blob URL conversion.
-
   const updateImageWithNewPalette = (updatedPalette) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -297,7 +293,7 @@ export default function ProcessingPage() {
         .pixelate()
         .convertPalette()
         .resizeImage();
-
+ 
       // Convert the canvas to a blob and update the displayed image with its blob URL
       canvas.toBlob((blob) => {
         if (blob) {
@@ -333,7 +329,8 @@ export default function ProcessingPage() {
     // Update the palette state and mark custom palette active
     setCurrentPalette(livePalette);
     setCustomPaletteActive(true);
-
+ 
+    // Directly update the current displayed image's pixel data using blob conversion:
     updateImageForChangedPaletteIndex(selectedColorIndex, newColor);
  
     setShowColorPicker(false); // Close color picker
@@ -348,7 +345,7 @@ export default function ProcessingPage() {
       {/* Navigation Bar */}
       <nav className="w-full bg-gray-800 py-4 px-8 flex justify-between items-center shadow-md">
         <h1 className="text-xl font-semibold text-green-400">Image Editor</h1>
-        <Link href="/">
+        <Link href="/signin">
           <button className="bg-[#00FFAB] text-black px-4 py-2 rounded-lg hover:bg-[#00CC8B] transition">
             Return to Main Page
           </button>
