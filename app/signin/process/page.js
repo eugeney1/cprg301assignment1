@@ -159,8 +159,17 @@ const findClosestColorIndex = (pickedColor) => {
         const result = await eyeDropper.open();
         const pickedColor = result.sRGBHex; // Get exact picked color
   
-        setSelectedColor(pickedColor); // Store picked color
-        setShowColorPicker(true); // Open react-color table
+        if (selectedColorIndex !== null) {
+          // Update both selectedColor and livePalette to register the change
+          setSelectedColor(pickedColor);
+          setLivePalette((prevLivePalette) => {
+            const updatedLivePalette = [...prevLivePalette];
+            updatedLivePalette[selectedColorIndex] = pickedColor;
+            return updatedLivePalette;
+          });
+        }
+  
+        setShowColorPicker(true); // Open react-color table (optional)
   
       } catch (error) {
         console.error("Color picking canceled or failed", error);
@@ -363,37 +372,37 @@ const findClosestColorIndex = (pickedColor) => {
   // Handle live color changes in the palette
   const handleColorChange = (newColor) => {
     if (selectedColorIndex === null) return;
- 
-    // Update live palette with the new color (as hex)
+  
     const updatedLivePalette = [...livePalette];
     updatedLivePalette[selectedColorIndex] = newColor.hex;
     setLivePalette(updatedLivePalette);
+    setSelectedColor(newColor.hex); // Ensures selectedColor is also updated!
   };
+  
  
   // Confirm color changes and update the actual palette.
   // Instead of reprocessing the original image, we update the current (pixelated) image directly.
   // Confirm color changes and update the actual palette and image
   const handleColorChangeComplete = () => {
-    if (!selectedColor) return;
+    if (selectedColorIndex === null) return;
   
-    const oldColor = selectedColor;  // The exact color picked from the screen
-    const newColor = livePalette[selectedColorIndex]; // The user-selected color from the table
+    const oldColor = currentPalette[selectedColorIndex]; // Get exact old color from the palette
+    const newColor = livePalette[selectedColorIndex]; // The newly selected color
   
-    // Ensure the picked color replaces the old one in the palette
+    // Ensure the palette updates
     setCurrentPalette((prevPalette) => {
       const updatedPalette = [...prevPalette];
       updatedPalette[selectedColorIndex] = newColor;
       return updatedPalette;
     });
   
-    // Ensure livePalette updates correctly
     setLivePalette((prevLivePalette) => {
       const updatedLivePalette = [...prevLivePalette];
       updatedLivePalette[selectedColorIndex] = newColor;
       return updatedLivePalette;
     });
   
-    // Update the image pixels to reflect the color change
+    // 🔥 Ensure we are correctly updating the image pixels
     updateImageForChangedPaletteIndex(oldColor, newColor);
   
     // Reset UI state
@@ -401,6 +410,8 @@ const findClosestColorIndex = (pickedColor) => {
     setSelectedColor(null);
     setSelectedColorIndex(null);
   };
+  
+  
   
   
   // CSS filter string for applying adjustments
