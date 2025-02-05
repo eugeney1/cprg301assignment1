@@ -52,9 +52,10 @@ export default function FileUploadPage() {
  
     const imageUrl = URL.createObjectURL(file);
     setImagePreview(imageUrl);
- 
+
     router.push(`signin/process?imageUrl=${encodeURIComponent(imageUrl)}`);
  
+
     const formData = new FormData();
     formData.append("file", file);
  
@@ -74,7 +75,7 @@ export default function FileUploadPage() {
   const handleSignOut = async () => {
     try {
       await firebaseSignOut();
-      router.push("/signin");
+      router.push("/");
     } catch (error) {
       console.error("Error signing out:", error);
     }

@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { downloadDSB } from "./dsbUtils"; // adjust the path as needed
+import "/app/globals.css"; // Global CSS styling
+
 
 export default function FinishPage() {
   const [imageUrl, setImageUrl] = useState(null);
@@ -32,7 +34,7 @@ export default function FinishPage() {
       {/* Navigation Bar */}
       <nav className="w-full bg-gray-800 py-4 px-8 flex justify-between items-center shadow-md">
         <h1 className="text-xl font-bold text-white">Auto Digitizing</h1>
-        <Link href="/">
+        <Link href="/signin">
           <button className="bg-green-500 hover:bg-green-600 text-black px-4 py-2 rounded transition">
             Return to Main Page
           </button>
