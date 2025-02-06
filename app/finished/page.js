@@ -1,15 +1,19 @@
-"use client";
-
+"use client"
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { downloadDSB } from "./dsbUtils"; // adjust the path as needed
+import { downloadDSB } from "./dsbUtils";
 
 export default function FinishPage() {
   const [imageUrl, setImageUrl] = useState(null);
+  const [progress, setProgress] = useState({
+    stage: '',
+    current: 0,
+    total: 0,
+    message: ''
+  });
+  const [error, setError] = useState(null);
   const searchParams = useSearchParams();
 
-  // Get the image URL from query parameters on mount
   useEffect(() => {
     const url = searchParams.get("imageUrl");
     if (url) {
@@ -17,13 +21,38 @@ export default function FinishPage() {
     }
   }, [searchParams]);
 
-  // Download the .dsb file using the provided utility function
   const handleDownloadDSB = async () => {
     if (!imageUrl) return;
+    
     try {
-      await downloadDSB(imageUrl);
+      setError(null);
+      setProgress({ stage: 'Loading', current: 0, total: 100, message: 'Loading image...' });
+      
+      await downloadDSB(imageUrl, (stage, current, total, message) => {
+        setProgress({ stage, current, total, message });
+      });
+      
+      setProgress({ 
+        stage: 'Complete', 
+        current: 100, 
+        total: 100, 
+        message: 'Download complete!' 
+      });
     } catch (error) {
       console.error("Download failed:", error);
+      setError(error.message);
+      setProgress({ stage: '', current: 0, total: 0, message: '' });
+    }
+  };
+
+  const getProgressColor = () => {
+    switch(progress.stage) {
+      case 'Loading': return '#3B82F6'; // blue
+      case 'Analysis': return '#8B5CF6'; // purple
+      case 'Converting': return '#22C55E'; // green
+      case 'Finalizing': return '#EAB308'; // yellow
+      case 'Complete': return '#16A34A'; // dark green
+      default: return '#6B7280'; // gray
     }
   };
 

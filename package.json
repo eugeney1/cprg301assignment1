@@ -19,7 +19,8 @@
     "quantize": "^1.0.2",
     "react": "19.0.0-rc-66855b96-20241106",
     "react-color": "^2.19.3",
-    "react-dom": "19.0.0-rc-66855b96-20241106"
+    "react-dom": "19.0.0-rc-66855b96-20241106",
+    "streamsaver": "^2.0.6"
   },
   "devDependencies": {
     "eslint": "^8",
