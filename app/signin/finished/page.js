@@ -1,19 +1,17 @@
-"use client"
+"use client";
+
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { downloadDSB } from "./dsbUtils";
+import Link from "next/link";
+import { downloadDSB } from "./dsbUtils"; // adjust the path as needed
+import "/app/globals.css"; // Global CSS styling
+
 
 export default function FinishPage() {
   const [imageUrl, setImageUrl] = useState(null);
-  const [progress, setProgress] = useState({
-    stage: '',
-    current: 0,
-    total: 0,
-    message: ''
-  });
-  const [error, setError] = useState(null);
   const searchParams = useSearchParams();
 
+  // Get the image URL from query parameters on mount
   useEffect(() => {
     const url = searchParams.get("imageUrl");
     if (url) {
@@ -21,38 +19,13 @@ export default function FinishPage() {
     }
   }, [searchParams]);
 
+  // Download the .dsb file using the provided utility function
   const handleDownloadDSB = async () => {
     if (!imageUrl) return;
-    
     try {
-      setError(null);
-      setProgress({ stage: 'Loading', current: 0, total: 100, message: 'Loading image...' });
-      
-      await downloadDSB(imageUrl, (stage, current, total, message) => {
-        setProgress({ stage, current, total, message });
-      });
-      
-      setProgress({ 
-        stage: 'Complete', 
-        current: 100, 
-        total: 100, 
-        message: 'Download complete!' 
-      });
+      await downloadDSB(imageUrl);
     } catch (error) {
       console.error("Download failed:", error);
-      setError(error.message);
-      setProgress({ stage: '', current: 0, total: 0, message: '' });
-    }
-  };
-
-  const getProgressColor = () => {
-    switch(progress.stage) {
-      case 'Loading': return '#3B82F6'; // blue
-      case 'Analysis': return '#8B5CF6'; // purple
-      case 'Converting': return '#22C55E'; // green
-      case 'Finalizing': return '#EAB308'; // yellow
-      case 'Complete': return '#16A34A'; // dark green
-      default: return '#6B7280'; // gray
     }
   };
 
@@ -61,7 +34,7 @@ export default function FinishPage() {
       {/* Navigation Bar */}
       <nav className="w-full bg-gray-800 py-4 px-8 flex justify-between items-center shadow-md">
         <h1 className="text-xl font-bold text-white">Auto Digitizing</h1>
-        <Link href="/">
+        <Link href="/signin">
           <button className="bg-green-500 hover:bg-green-600 text-black px-4 py-2 rounded transition">
             Return to Main Page
           </button>
