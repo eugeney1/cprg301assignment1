@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { downloadDSB } from "./dsbUtils";
+import Link from "next/link"; // For routing links
 
 export default function FinishPage() {
   const [imageUrl, setImageUrl] = useState(null);
