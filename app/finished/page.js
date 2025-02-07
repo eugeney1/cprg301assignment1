@@ -107,126 +107,46 @@ export default function FinishPage() {
   };
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.heading}>Processing Complete!</h1>
-      
-      {cleanedImageUrl && (
-        <div style={styles.imageContainer}>
-          <img 
-            src={cleanedImageUrl}
-            crossOrigin="anonymous" 
-            alt="Processed" 
-            style={styles.image}
+    <div className="min-h-screen bg-black">
+      {/* Navigation Bar */}
+      <nav className="w-full bg-gray-800 py-4 px-8 flex justify-between items-center shadow-md">
+        <h1 className="text-xl font-bold text-white">Auto Digitizing</h1>
+        <Link href="/">
+          <button className="bg-green-500 hover:bg-green-600 text-black px-4 py-2 rounded transition">
+            Return to Main Page
+          </button>
+        </Link>
+      </nav>
+
+      {/* Main Content */}
+      <div className="flex flex-col items-center justify-center p-6">
+        <div className="bg-black shadow-lg rounded-lg p-8 mt-10 max-w-md w-full">
+          <h2 className="text-2xl font-bold mb-6 text-center">Processing Complete!</h2>
+
+          {cleanedImageUrl && (
+            <div className="mb-6">
+              <img
+                src={cleanedImageUrl}
+            crossOrigin="anonymous"
+                alt="Processed"
+                className="w-full h-auto rounded"
             onError={(e) => {
               console.error("Failed to load image:", cleanedImageUrl);
               e.target.style.display = 'none';
               setError("Failed to load image");
             }}
-          />
-        </div>
-      )}
+              />
+            </div>
+          )}
 
-      {error && (
-        <div style={styles.error}>
-          Error: {error}
+          <button
+            onClick={handleDownloadDSB}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
+          >
+            Download as .dsb File
+          </button>
         </div>
-      )}
-      
-      {progress.stage && (
-        <div style={styles.progressContainer}>
-          <div style={styles.progressInfo}>
-            <span>{progress.message}</span>
-            <span>{Math.round((progress.current / progress.total) * 100)}%</span>
-          </div>
-          <div style={styles.progressBar}>
-            <div 
-              style={{
-                ...styles.progressFill,
-                width: `${Math.round((progress.current / progress.total) * 100)}%`,
-                backgroundColor: getProgressColor()
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      <button 
-        onClick={handleDownloadDSB}
-        disabled={progress.stage && progress.stage !== 'Complete'}
-        style={{
-          ...styles.button,
-          ...(progress.stage && progress.stage !== 'Complete' 
-            ? styles.buttonDisabled 
-            : {}),
-        }}
-      >
-        {progress.stage && progress.stage !== 'Complete' 
-          ? 'Processing...' 
-          : 'Download as .dsb File'
-        }
-      </button>
+      </div>
     </div>
   );
-}
-
-const styles = {
-  container: {
-    textAlign: "center",
-    padding: "2rem",
-  },
-  heading: {
-    fontSize: "1.5rem",
-    fontWeight: "bold",
-    marginBottom: "1.5rem",
-  },
-  imageContainer: {
-    margin: "1rem 0",
-  },
-  image: {
-    maxWidth: "100%",
-    height: "auto",
-  },
-  error: {
-    backgroundColor: "#FEE2E2",
-    color: "#DC2626",
-    padding: "0.75rem",
-    borderRadius: "0.375rem",
-    marginBottom: "1rem",
-  },
-  progressContainer: {
-    maxWidth: "32rem",
-    margin: "0 auto 1.5rem auto",
-  },
-  progressInfo: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginBottom: "0.5rem",
-    fontSize: "0.875rem",
-  },
-  progressBar: {
-    width: "100%",
-    height: "0.5rem",
-    backgroundColor: "#E5E7EB",
-    borderRadius: "0.25rem",
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: "0.25rem",
-    transition: "width 300ms ease-in-out",
-  },
-  button: {
-    padding: "0.5rem 1rem",
-    fontSize: "1rem",
-    cursor: "pointer",
-    backgroundColor: "#0070f3",
-    color: "#fff",
-    border: "none",
-    borderRadius: "4px",
-    transition: "background-color 200ms ease",
-  },
-  buttonDisabled: {
-    backgroundColor: "#9CA3AF",
-    cursor: "not-allowed",
-  },
 }
