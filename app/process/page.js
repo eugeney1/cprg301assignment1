@@ -176,8 +176,32 @@ export default function ProcessingPage() {
   // page will receive that URL.
 
   const handleConvert = async () => {
-    const processedImageUrl = encodeURIComponent(currentDisplayedImage);
-    router.push(`/finished?imageUrl=${processedImageUrl}`);
+    // Convert blob URL to persistent data URL
+    const blob = await fetch(currentDisplayedImage).then((res) => res.blob());
+    const dataUrl = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+  
+    // Calculate DSB dimensions
+    const dimensions = calculateDsbDimensions();
+  
+    // Store data in localStorage
+    localStorage.setItem("imageData", JSON.stringify({
+      imageUrl: dataUrl,
+      colors: colors,
+      stitchCount: calculateStitchCount(),
+      plusX: dimensions.plusX,
+      minusX: dimensions.minusX,
+      plusY: dimensions.plusY,
+      minusY: dimensions.minusY,
+      ax: dimensions.ax,
+      ay: dimensions.ay
+    }));
+  
+    // Navigate to the finished page
+    router.push("/finished");
   };
  
   // Handle the "Preview" button action.
@@ -218,6 +242,8 @@ export default function ProcessingPage() {
       } else {
         // Quantize the image to generate a new palette
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        console.log(`width: ${canvas.width} `)
+        console.log(`height: ${canvas.height} `)
         const pixels = [];
         for (let i = 0; i < imageData.data.length; i += 4) {
           pixels.push([
@@ -241,6 +267,8 @@ export default function ProcessingPage() {
         .convertPalette()
         .resizeImage();
 
+      console.log(`width: ${displayWidth} `)
+      console.log(`height: ${displayHeight} `)
       // Convert the canvas to a blob and use its object URL.
       canvas.toBlob((blob) => {
         if (blob) {
@@ -339,6 +367,29 @@ export default function ProcessingPage() {
     setShowColorPicker(false); // Close color picker
     setSelectedColorIndex(null); // Reset selection
   };
+
+  // Add these helper functions
+const calculateDsbDimensions = () => {
+  // Convert size (inches) to DSB units (254 units/inch)
+  const totalWidthDsb = size * 254;
+  const totalHeightDsb = size * (originalHeight / originalWidth) * 254;
+  
+  // Split equally for +/- values
+  return {
+    plusX: Math.round(totalWidthDsb / 2),
+    minusX: Math.round(totalWidthDsb / 2), // Same as plusX
+    plusY: Math.round(totalHeightDsb / 2),
+    minusY: Math.round(totalHeightDsb / 2), // Same as plusY
+    ax: 0,  // End at origin
+    ay: 0   // End at origin
+  };
+};
+
+const calculateStitchCount = () => {
+  // 9 stitches per pixel from generatePixel() function
+  const pixelCount = displayWidth * displayHeight;
+  return pixelCount * 9;
+};
  
 
   // CSS filter string for applying adjustments

@@ -1,5 +1,5 @@
 // dsbUtils.js
-
+import quantize from "quantize";
 // Utility commands for DSB file creation
 export const DSB_COMMANDS = {
     STITCH: 0x80, // 10000000
@@ -40,7 +40,7 @@ export const DSB_COMMANDS = {
     async initializeStream() {
       // Create a download stream
       const streamSaver = await import('streamsaver');
-      const fileStream = streamSaver.createWriteStream('embroidery.dsb');
+      const fileStream = streamSaver.createWriteStream('Test1.dsb');
       this.streamWriter = fileStream.getWriter();
       
       // Generate initial header
@@ -48,15 +48,46 @@ export const DSB_COMMANDS = {
       await this.streamWriter.write(initialHeader);
     }
   
-    async addStitch(command, x, y) {
-      this.currentChunk.push(command, x, y);
-  
-      // If current chunk reaches threshold, write it to stream
+    async addStitch(command, y, x) {
+      this.currentChunk.push(command, y, x);
+    
+      // Determine direction signs based on command
+      let dx = x;
+      let dy = y;
+      
+      // Check if the command is a negative X command
+      if (
+        command === DSB_COMMANDS.STITCH_NEG_X ||
+        command === DSB_COMMANDS.STITCH_NEG_BOTH ||
+        command === DSB_COMMANDS.JUMP_NEG_X ||
+        command === DSB_COMMANDS.JUMP_NEG_BOTH
+      ) {
+        dx = -dx;
+      }
+      
+      // Check if the command is a negative Y command
+      if (
+        command === DSB_COMMANDS.STITCH_NEG_Y ||
+        command === DSB_COMMANDS.STITCH_NEG_BOTH ||
+        command === DSB_COMMANDS.JUMP_NEG_Y ||
+        command === DSB_COMMANDS.JUMP_NEG_BOTH
+      ) {
+        dy = -dy;
+      }
+    
+      // Update statistics with corrected displacements
+      this.currentX += dx;
+      this.currentY += dy;
+      this.maxX = Math.max(this.maxX, this.currentX);
+      this.minX = Math.min(this.minX, this.currentX);
+      this.maxY = Math.max(this.maxY, this.currentY);
+      this.minY = Math.min(this.minY, this.currentY);
+    
+      // Rest of the method remains the same
       if (this.currentChunk.length >= this.chunkSize) {
         await this.flushCurrentChunk();
       }
-  
-      // Update statistics
+    
       if (
         command === DSB_COMMANDS.STITCH ||
         command === DSB_COMMANDS.STITCH_NEG_X ||
@@ -65,13 +96,6 @@ export const DSB_COMMANDS = {
       ) {
         this.stitchCount++;
       }
-      
-      this.currentX += x;
-      this.currentY += y;
-      this.maxX = Math.max(this.maxX, this.currentX);
-      this.minX = Math.min(this.minX, this.currentX);
-      this.maxY = Math.max(this.maxY, this.currentY);
-      this.minY = Math.min(this.minY, this.currentY);
     }
   
     async flushCurrentChunk() {
@@ -88,13 +112,16 @@ export const DSB_COMMANDS = {
       let result = encoder.encodeInto(label, header.subarray(0, 20));
       let offset = result.written;
   
+      const symmetricX = Math.max(this.maxX, Math.abs(this.minX));
+      const symmetricY = Math.max(this.maxY, Math.abs(this.minY));
+      
       const headerInfo = [
         `ST:      ${this.stitchCount}`,
         `CO:  ${this.colorChanges}`,
-        `+X:    ${Math.max(0, this.maxX)}`,
-        `-X:    ${Math.abs(Math.min(0, this.minX))}`,
-        `+Y:    ${Math.max(0, this.maxY)}`,
-        `-Y:    ${Math.abs(Math.min(0, this.minY))}`,
+        `+X:    ${symmetricX}`,    // Use largest X value
+        `-X:    ${symmetricX}`,    // Mirror +X
+        `+Y:    ${symmetricY}`,    // Use largest Y value
+        `-Y:    ${symmetricY}`,    // Mirror +Y
         `AX:+    ${this.currentX}`,
         `AY:+    ${this.currentY}`,
       ];
@@ -184,7 +211,7 @@ export const DSB_COMMANDS = {
     
     const colorMap = new Map();
     
-    // First pass: collect colors
+    // First pass: collect colors (using RGB only)
     console.time('Color collection');
     const pixelsPerChunk = 1000;
     for (let i = 0; i < data.length; i += pixelsPerChunk * 4) {
@@ -195,7 +222,7 @@ export const DSB_COMMANDS = {
         const r = data[j];
         const g = data[j + 1];
         const b = data[j + 2];
-        const colorKey = `${r},${g},${b}`;
+        const colorKey = `${r},${g},${b}`;  // RGB only
         if (!colorMap.has(colorKey)) {
           colorMap.set(colorKey, []);
           console.log(`Found new color: RGB(${r},${g},${b})`);
@@ -229,9 +256,14 @@ export const DSB_COMMANDS = {
       for (let cy = y; cy < endY; cy++) {
         for (let x = 0; x < width; x++) {
           const idx = (cy * width + x) * 4;
-          const colorKey = `${data[idx]},${data[idx + 1]},${data[idx + 2]},${data[idx + 3]}`;
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
+          const colorKey = `${r},${g},${b}`;  // RGB only (no alpha)
           if (colorRegions.has(colorKey)) {
             colorRegions.get(colorKey)[cy][x] = 1;
+          } else {
+            console.warn(`Color key ${colorKey} not found in colorRegions at (${x},${cy})`);
           }
         }
       }
@@ -241,6 +273,10 @@ export const DSB_COMMANDS = {
       }
     }
     console.timeEnd('Region filling');
+    
+    // Debug: Check one of the regions
+    const sampleColor = colorMap.keys().next().value;
+    console.log(`Sample region for color ${sampleColor}:`, colorRegions.get(sampleColor));
     
     return Array.from(colorRegions.values());
 }
@@ -275,21 +311,21 @@ async function processRegionStream(dsb, region, onProgress) {
         if (row[x] === 1) {
           const pixelStitches = generatePixel();
           for (const stitch of pixelStitches) {
-            await dsb.addStitch(stitch.command, stitch.x, stitch.y);
+            await dsb.addStitch(stitch.command, stitch.y, stitch.x);
           }
         } else {
-          await dsb.addStitch(DSB_COMMANDS.JUMP, 0, pixel_length);
+          await dsb.addStitch(DSB_COMMANDS.JUMP, pixel_length, 0);
         }
         width += pixel_length;
       }
       
       // Handle row-end jumps
       while (width > MAX_JUMP) {
-        await dsb.addStitch(DSB_COMMANDS.JUMP_NEG_X, 0, MAX_JUMP);
+        await dsb.addStitch(DSB_COMMANDS.JUMP_NEG_X, MAX_JUMP, 0);
         width -= MAX_JUMP;
       }
       if (width > 0) {
-        await dsb.addStitch(DSB_COMMANDS.JUMP_NEG_BOTH, 0, width);
+        await dsb.addStitch(DSB_COMMANDS.JUMP_NEG_BOTH, width, 0);
       }
 
       await dsb.addStitch(DSB_COMMANDS.JUMP_NEG_Y, pixel_length, 0 )
@@ -316,93 +352,152 @@ async function getPixelatedImageData(url) {
   const response = await fetch(url);
   const blob = await response.blob();
   const bitmap = await createImageBitmap(blob);
+  
+  // Create a canvas with reduced dimensions
+  const reducedWidth = Math.floor(bitmap.width / 9);
+  const reducedHeight = Math.floor(bitmap.height / 9);
+  
   const canvas = document.createElement('canvas');
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
+  canvas.width = reducedWidth;
+  canvas.height = reducedHeight;
+  
   const ctx = canvas.getContext('2d');
-  ctx.drawImage(bitmap, 0, 0);
-  return ctx.getImageData(0, 0, canvas.width, canvas.height);
+  
+  // Draw image scaled down to 1/3 of original size
+  ctx.drawImage(
+    bitmap,
+    0, 0, bitmap.width, bitmap.height,  // source dimensions
+    0, 0, reducedWidth, reducedHeight   // destination dimensions
+  );
+  
+  return {
+    imageData: ctx.getImageData(0, 0, canvas.width, canvas.height),
+    canvas: canvas
+  };
 }
 
-  /**
-   * Downloads a DSB file from an image URL.
-   * For demonstration, this function creates a DSB file containing
-   * the stitch data for a single pixel. In a complete solution,
-   * you would use full image-to-stitch conversion logic.
-   */
-  export async function downloadDSB(imageUrl, onProgress = null) {
-    try {
-      console.log('Starting DSB conversion process');
-      console.time('Total conversion time');
-      
-      // Get the pixelated image data
-      const imageData = await getPixelatedImageData(decodeURIComponent(imageUrl));
-      console.log('Processing pixelated image:', imageData.width, 'x', imageData.height);
-      
-      const dsb = new DSBWriter();
-      await dsb.initializeStream();
-      
-      // Process regions with flood fill progress
-      console.time('Flood fill analysis');
-      const regions = await floodFill(imageData, (current, total) => {
+/**
+ * Downloads a DSB file from an image URL.
+ * For demonstration, this function creates a DSB file containing
+ * the stitch data for a single pixel. In a complete solution,
+ * you would use full image-to-stitch conversion logic.
+ */
+export async function downloadDSB(imageUrl, onProgress = null) {
+  try {
+    console.log('Starting DSB conversion process');
+    console.time('Total conversion time');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const colorCount = parseInt(urlParams.get('colors')) || 7;
+
+    // Get the pixelated image data
+    const { imageData } = await getPixelatedImageData(decodeURIComponent(imageUrl));
+    console.log('Processing pixelated image:', imageData.width, 'x', imageData.height);
+
+    // Extract pixels from the pixelated image
+    const pixels = [];
+    for (let i = 0; i < imageData.data.length; i += 4) {
+      pixels.push([
+        imageData.data[i],     // R
+        imageData.data[i + 1], // G
+        imageData.data[i + 2]  // B
+      ]);
+    }
+
+    // Quantize the image to the selected number of colors
+    const colorMap = quantize(pixels, colorCount);
+    const palette = colorMap.palette();
+
+    // Create regions based on the quantized colors
+    const regions = Array.from({ length: colorCount }, () => {
+      const region = new Array(imageData.height);
+      for (let y = 0; y < imageData.height; y++) {
+        region[y] = new Uint8Array(imageData.width);
+      }
+      return region;
+    });
+
+    // Fill regions with pixel data
+    for (let y = 0; y < imageData.height; y++) {
+      for (let x = 0; x < imageData.width; x++) {
+        const idx = (y * imageData.width + x) * 4;
+        const r = imageData.data[idx];
+        const g = imageData.data[idx + 1];
+        const b = imageData.data[idx + 2];
+
+        // Find the closest color in the palette
+        const color = colorMap.map([r, g, b]);
+        const colorIndex = palette.findIndex(
+          (c) => c[0] === color[0] && c[1] === color[1] && c[2] === color[2]
+        );
+
+        if (colorIndex >= 0) {
+          regions[colorIndex][y][x] = 1; // Mark this pixel as part of the region
+        }
+      }
+    }
+
+    // Set up DSB header info
+    const dsbHeaderInfo = {
+      stitchCount: parseInt(urlParams.get('stitchCount')),
+      colorChanges: colorCount,
+      plusX: parseInt(urlParams.get('plusX')),
+      plusY: parseInt(urlParams.get('plusY')),
+      minusX: parseInt(urlParams.get('plusX')), // Symmetric X
+      minusY: parseInt(urlParams.get('plusY')), // Symmetric Y
+      ax: 0,
+      ay: 0
+    };
+
+    const dsb = new DSBWriter();
+    dsb.stitchCount = dsbHeaderInfo.stitchCount;
+    dsb.colorChanges = dsbHeaderInfo.colorChanges;
+    dsb.maxX = dsbHeaderInfo.plusX;
+    dsb.minX = -dsbHeaderInfo.minusX; // Will become positive in header
+    dsb.maxY = dsbHeaderInfo.plusY;
+    dsb.minY = -dsbHeaderInfo.minusY; // Will become positive in header
+
+    await dsb.initializeStream();
+
+    // Process each region
+    console.time('Region processing');
+    for (let i = 0; i < regions.length; i++) {
+      // Log color information for debugging
+      const regionColor = palette[i];
+      console.log(`Region ${i + 1} color:`, regionColor);
+
+      await dsb.addStitch(DSB_COMMANDS.COLOR_CHANGE, 0, 0);
+      dsb.colorChanges++;
+
+      // Calculate region statistics
+      let pixelCount = 0;
+      for (let y = 0; y < regions[i].length; y++) {
+        for (let x = 0; x < regions[i][y].length; x++) {
+          if (regions[i][y][x] === 1) pixelCount++;
+        }
+      }
+      console.log(`Region ${i + 1} contains ${pixelCount} pixels to stitch`);
+
+      // Process the region
+      await processRegionStream(dsb, regions[i], (current, total) => {
         if (onProgress) {
-          onProgress('Analysis', current, total, 'Analyzing colors...');
+          onProgress(
+            'Converting',
+            i + current / total,
+            regions.length,
+            `Processing region ${i + 1} of ${regions.length}`
+          );
         }
       });
-      console.timeEnd('Flood fill analysis');
-      console.log(`Total regions to process: ${regions.length}`);
-      
-      // Process each region with progress
-      console.time('Region processing');
-      for (let i = 0; i < regions.length; i++) {
-        // Log color information for debugging
-        let sampleColor = null;
-        for (let y = 0; y < regions[i].length; y++) {
-          for (let x = 0; x < regions[i][y].length; x++) {
-            if (regions[i][y][x] === 1) {
-              const idx = (y * imageData.width + x) * 4;
-              sampleColor = [
-                imageData.data[idx],
-                imageData.data[idx + 1],
-                imageData.data[idx + 2]
-              ];
-              break;
-            }
-          }
-          if (sampleColor) break;
-        }
-        console.log(`Region ${i + 1} color:`, sampleColor);
-        
-        await dsb.addStitch(DSB_COMMANDS.COLOR_CHANGE, 0, 0);
-        dsb.colorChanges++;
-        
-        // Calculate region statistics
-        let pixelCount = 0;
-        for (let y = 0; y < regions[i].length; y++) {
-          for (let x = 0; x < regions[i][y].length; x++) {
-            if (regions[i][y][x] === 1) pixelCount++;
-          }
-        }
-        console.log(`Region ${i + 1} contains ${pixelCount} pixels to stitch`);
-        
-        await processRegionStream(dsb, regions[i], (current, total) => {
-          if (onProgress) {
-            onProgress(
-              'Converting',
-              i + current/total,
-              regions.length,
-              `Processing region ${i + 1} of ${regions.length}`
-            );
-          }
-        });
-      }
-      
-      await dsb.finalize();
-      return true;
-    } catch (error) {
-      console.error("Error downloading DSB file:", error);
-      throw error;
     }
+
+    await dsb.finalize();
+    console.timeEnd('Total conversion time');
+    return true;
+  } catch (error) {
+    console.error("Error downloading DSB file:", error);
+    throw error;
   }
+}
   
   
