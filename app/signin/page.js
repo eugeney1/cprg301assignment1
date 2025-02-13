@@ -105,6 +105,7 @@ export default function FileUploadPage() {
                 >
                   Settings
                 </Link>
+                <Link href="/signin/gallery" className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]"> Gallery </Link>
                 <button
                   onClick={handleSignOut}
                   className="block w-full text-left px-4 py-2 text-sm text-[#FF3B3B] hover:bg-[#1E1E1E]"
