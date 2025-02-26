@@ -1,42 +1,45 @@
+// _utils/auth-context.js
 "use client";
- 
-import { useContext, createContext, useState, useEffect } from "react";
-import {
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged,
-  GithubAuthProvider,
-} from "firebase/auth";
-import { auth } from "./firebase";
- 
+
+import { createContext, useContext, useEffect, useState } from "react";
+import { auth, signInWithGoogle, signInWithGithub, signInWithApple, signInWithEmail, registerWithEmail, signInWithPhone } from "./firebase";
+import { onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "firebase/auth";
+
 const AuthContext = createContext();
- 
-export const AuthContextProvider = ({ children }) => {
+
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
- 
-  const gitHubSignIn = () => {
-    const provider = new GithubAuthProvider();
-    return signInWithPopup(auth, provider);
-  };
- 
-  const firebaseSignOut = () => {
-    return signOut(auth);
-  };
- 
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, [user]);
- 
+    const initializeAuth = async () => {
+      await setPersistence(auth, browserLocalPersistence);
+
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser); // Updates user state
+        setLoading(false); // Ensures loading state is false after check
+      });
+
+      return () => unsubscribe();
+    };
+
+    initializeAuth();
+  }, []);
+
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, gitHubSignIn, firebaseSignOut }}>
-      {children}
+    <AuthContext.Provider value={{ user, signInWithGoogle, signInWithGithub, signInWithApple, signInWithEmail, registerWithEmail, signInWithPhone, logout }}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
- 
-export const useUserAuth = () => {
-  return useContext(AuthContext);
-};
+
+export const useAuth = () => useContext(AuthContext);

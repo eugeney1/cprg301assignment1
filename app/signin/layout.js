@@ -1,5 +1,5 @@
-import { AuthContextProvider } from "./_utils/auth-context";
- 
+import { AuthProvider } from "./_utils/auth-context"; // ✅ Ensure correct import
+
 export default function Layout({ children }) {
-  return <AuthContextProvider>{children}</AuthContextProvider>;
+  return <AuthProvider>{children}</AuthProvider>; // ✅ Use AuthProvider instead of AuthContextProvider
 }
