@@ -108,7 +108,7 @@ export class DSBWriter {
   async generateHeader() {
     const header = new Uint8Array(512);
     const encoder = new TextEncoder();
-    const label = "LA:~temp.qe DSC.QEP\n";
+    const label = "LA:~temp.qe DSC.QEP\r";
     let result = encoder.encodeInto(label, header.subarray(0, 20));
     let offset = result.written;
 
@@ -127,12 +127,40 @@ export class DSBWriter {
     ];
 
     for (const line of headerInfo) {
-      result = encoder.encodeInto(line + "\n", header.subarray(offset));
+      result = encoder.encodeInto(line + "\r", header.subarray(offset));
       offset += result.written;
     }
 
     header.fill(0x20, offset, 512);
     return header;
+  }
+
+  // Grok 3 generated.
+
+  async addJumpTo(targetX, targetY) {
+    let currentX = this.currentX;
+    let currentY = this.currentY;
+    while (currentX !== targetX || currentY !== targetY) {
+      let dx = targetX - currentX;
+      let dy = targetY - currentY;
+      let jumpX = Math.min(Math.abs(dx), 255);
+      let jumpY = Math.min(Math.abs(dy), 255);
+      if (dx < 0) jumpX = -jumpX;
+      if (dy < 0) jumpY = -jumpY;
+      const command = this.getJumpCommand(jumpX, jumpY);
+      const absJumpX = Math.abs(jumpX);
+      const absJumpY = Math.abs(jumpY);
+      await this.addStitch(command, absJumpY, absJumpX);
+      currentX += jumpX;
+      currentY += jumpY;
+    }
+  }
+
+  getJumpCommand(dx, dy) {
+    if (dx >= 0 && dy >= 0) return DSB_COMMANDS.JUMP; // 0x81
+    if (dx < 0 && dy >= 0) return DSB_COMMANDS.JUMP_NEG_X; // 0xa1
+    if (dx >= 0 && dy < 0) return DSB_COMMANDS.JUMP_NEG_Y; // 0xc1
+    if (dx < 0 && dy < 0) return DSB_COMMANDS.JUMP_NEG_BOTH; // 0xe1
   }
 
   async finalize() {
@@ -298,59 +326,46 @@ async function floodFill(imageData, onProgress = null) {
  * @returns stitches (an array of stitched pixels)
  */
 // this generates the fill stitches using a stream to ensure that the browser doesnt crash
+// In dsbUtils.js
+
 async function processRegionStream(dsb, region, onProgress) {
-  const chunkSize = 10;
   const pixel_length = 9;
-  const totalRows = region.length;
-  const totalColumns = region[0].length;
-  const totalHeight = totalColumns * pixel_length;
-  const totalWidth = totalRows * pixel_length;
-  let height = 0;
+  const positions = [];
 
-  for (let y = 0; y < region.length; y += chunkSize) {
-    const rowChunk = region.slice(y, Math.min(y + chunkSize, region.length));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    for (const row of rowChunk) {
-      let width = 0;
-
-      for (let x = 0; x < row.length; x++) {
-        if (row[x] === 1) {
-          const pixelStitches = generatePixel();
-          for (const stitch of pixelStitches) {
-            await dsb.addStitch(stitch.command, stitch.y, stitch.x);
-          }
-        } else {
-          await dsb.addStitch(DSB_COMMANDS.JUMP, pixel_length, 0);
-        }
-        width += pixel_length;
+  // Step 1: Collect all positions where region[j][i] === 1
+  for (let j = 0; j < region.length; j++) {
+    for (let i = 0; i < region[j].length; i++) {
+      if (region[j][i] === 1) {
+        positions.push([i, j]);
       }
+    }
+  }
 
-      // Handle row-end jumps
-      while (width > MAX_JUMP) {
-        await dsb.addStitch(DSB_COMMANDS.JUMP_NEG_X, MAX_JUMP, 0);
-        width -= MAX_JUMP;
-      }
-      if (width > 0) {
-        await dsb.addStitch(DSB_COMMANDS.JUMP_NEG_BOTH, width, 0);
-      }
+  // Step 2: Sort positions by row (j) then column (i)
+  positions.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
 
-      await dsb.addStitch(DSB_COMMANDS.JUMP_NEG_Y, pixel_length, 0);
-      height += pixel_length;
+  // Step 3: Process each position
+  let processed = 0;
+  const totalPositions = positions.length;
+
+  for (const [i, j] of positions) {
+    // Calculate target absolute position
+    const targetX = i * pixel_length;
+    const targetY = j * pixel_length;
+
+    // Jump to the starting position of the pixel
+    await dsb.addJumpTo(targetX, targetY);
+
+    // Add stitch commands for the pixel
+    const pixelStitches = generatePixel();
+    for (const stitch of pixelStitches) {
+      await dsb.addStitch(stitch.command, stitch.y, stitch.x);
     }
 
+    processed++;
     if (onProgress) {
-      onProgress(y + rowChunk.length, totalRows);
+      onProgress(processed, totalPositions);
     }
-  }
-
-  // we need to reset the x and y values now
-  while (height > MAX_JUMP) {
-    await dsb.addStitch(DSB_COMMANDS.JUMP_NEG_Y, MAX_JUMP, 0);
-    height -= MAX_JUMP;
-  }
-  if (height > 0) {
-    await dsb.addStitch(DSB_COMMANDS.JUMP_NEG_Y, height, 0);
   }
 }
 
