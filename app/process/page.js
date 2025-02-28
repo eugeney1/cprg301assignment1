@@ -1,63 +1,52 @@
-/**
- * ChatGPT
- * DeepSeek
- * react-color table - allows users to edit image colors
- * Author -@ Author jaywcjlove @ <https://github.com/uiwjs/react-color>
- **/
- 
 "use client";
- 
+
 // Importing necessary React hooks and libraries
-import { useState, useEffect } from "react"; // For state management and side effects
-import { SketchPicker } from "react-color"; // Color picker component
-import { useRouter, useSearchParams } from "next/navigation"; // For routing and accessing query parameters
-import Link from "next/link"; // For navigation links
-import Pixelit from "./pixelit"; // Pixelation library
-import quantize from "quantize"; // For reducing color palettes
-import "/app/globals.css"; // Global CSS styling
- 
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import quantize from "quantize";
+import { useEffect, useState } from "react";
+import { SketchPicker } from "react-color";
+import Pixelit from "./pixelit";
+import "/app/globals.css";
+
 export default function ProcessingPage() {
-  // State variables for managing image properties and user adjustments
-  const [imageUrl, setImageUrl] = useState(null); // URL of the uploaded image
-  const [colors, setColors] = useState(7); // Number of colors in the palette
-  const [size, setSize] = useState(4); // Image size (inches)
-  const [originalWidth, setOriginalWidth] = useState(0); // Original image width (pixels)
-  const [originalHeight, setOriginalHeight] = useState(0); // Original image height (pixels)
-  const [displayWidth, setDisplayWidth] = useState(0); // Resized image width for display
-  const [displayHeight, setDisplayHeight] = useState(0); // Resized image height for display
-  const [isMetric, setIsMetric] = useState(false); // Toggle between metric and imperial units
-  const [currentDisplayedImage, setCurrentDisplayedImage] = useState(null); // Currently displayed (processed) image
-  const [isProcessing, setIsProcessing] = useState(false); // Flag to indicate processing state
-  const [imageVersion, setImageVersion] = useState(0); // Version to force image refresh
-  const [currentPalette, setCurrentPalette] = useState([]); // Final color palette for the image
-  const [livePalette, setLivePalette] = useState([]); // Temporary palette for live color editing
-  const [customPaletteActive, setCustomPaletteActive] = useState(false); // Flag indicating a custom palette is in use
- 
-  // State variables for filter adjustments
-  const [hue, setHue] = useState(0); // Hue adjustment (degrees)
-  const [saturation, setSaturation] = useState(100); // Saturation adjustment (%)
-  const [brightness, setBrightness] = useState(100); // Brightness adjustment (%)
-  const [contrast, setContrast] = useState(100); // Contrast adjustment (%)
- 
-  // State for color picker functionality
-  const [selectedColorIndex, setSelectedColorIndex] = useState(null); // Index of the selected color in the palette
-  const [showColorPicker, setShowColorPicker] = useState(false); // Toggle for showing the color picker
- 
-  const router = useRouter(); // Router for navigation
-  const searchParams = useSearchParams(); // Extract query parameters from the URL
- 
-  const PPI = 300; // Pixels per inch for display calculations
- 
-  const [originalImage, setOriginalImage] = useState(null); // Stores the unprocessed original image
- 
-  // Load image from URL query parameter
+  // Existing state variables
+  const [imageUrl, setImageUrl] = useState(null);
+  const [colors, setColors] = useState(7);
+  const [size, setSize] = useState(4);
+  const [originalWidth, setOriginalWidth] = useState(0);
+  const [originalHeight, setOriginalHeight] = useState(0);
+  const [displayWidth, setDisplayWidth] = useState(0);
+  const [displayHeight, setDisplayHeight] = useState(0);
+  const [isMetric, setIsMetric] = useState(false);
+  const [currentDisplayedImage, setCurrentDisplayedImage] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [imageVersion, setImageVersion] = useState(0);
+  const [currentPalette, setCurrentPalette] = useState([]);
+  const [livePalette, setLivePalette] = useState([]);
+  const [customPaletteActive, setCustomPaletteActive] = useState(false);
+  const [hue, setHue] = useState(0);
+  const [saturation, setSaturation] = useState(100);
+  const [brightness, setBrightness] = useState(100);
+  const [contrast, setContrast] = useState(100);
+  const [selectedColorIndex, setSelectedColorIndex] = useState(null);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [originalImage, setOriginalImage] = useState(null);
+
+  // New state variable for stitch count
+  const [stitchCount, setStitchCount] = useState(0);
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const PPI = 300;
+
+  // Existing useEffect hooks (unchanged)
   useEffect(() => {
-    const imgUrl = searchParams.get("imageUrl"); // Extract the image URL from query parameters
+    const imgUrl = searchParams.get("imageUrl");
     if (imgUrl) {
-      const decodedUrl = decodeURIComponent(imgUrl); // Decode URL
-      const img = new Image(); // Create an image object
+      const decodedUrl = decodeURIComponent(imgUrl);
+      const img = new Image();
       img.onload = () => {
-        // Once the image is loaded, update state variables
         setImageUrl(decodedUrl);
         setCurrentDisplayedImage(decodedUrl);
         setOriginalImage(decodedUrl);
@@ -69,42 +58,39 @@ export default function ProcessingPage() {
       img.onerror = () => {
         alert("Failed to load the image. Please try again with a different image.");
       };
-      img.src = decodedUrl; // Set the source of the image to trigger loading
+      img.src = decodedUrl;
     }
   }, [searchParams]);
- 
-  // Automatically calculate display dimensions based on the size input
+
   useEffect(() => {
     if (originalWidth && originalHeight) {
-      const aspectRatio = originalWidth / originalHeight; // Calculate aspect ratio
-      const targetPixels = size * PPI; // Calculate the target width in pixels
+      const aspectRatio = originalWidth / originalHeight;
+      const targetPixels = size * PPI;
       const displayPixelWidth = targetPixels;
-      const displayPixelHeight = displayPixelWidth / aspectRatio; // Maintain aspect ratio
-      setDisplayWidth(Math.round(displayPixelWidth)); // Update display width
-      setDisplayHeight(Math.round(displayPixelHeight)); // Update display height
+      const displayPixelHeight = displayPixelWidth / aspectRatio;
+      setDisplayWidth(Math.round(displayPixelWidth));
+      setDisplayHeight(Math.round(displayPixelHeight));
     }
   }, [size, originalWidth, originalHeight]);
- 
-  // Sync the live palette with the current palette initially
+
   useEffect(() => {
     setLivePalette(currentPalette);
   }, [currentPalette]);
- 
-  // Helper function to format dimensions in inches or centimeters
+
+  // Existing helper functions (unchanged)
   const formatDimension = (pixels) => {
-    const inches = size; // Size in inches
+    const inches = size;
     if (isMetric) {
-      const cm = inches * 2.54; // Convert to centimeters
+      const cm = inches * 2.54;
       return `${cm.toFixed(2)} cm (${pixels}px)`;
     }
     return `${inches.toFixed(2)}" (${pixels}px)`;
   };
- 
-  // Helper function to convert a hex color (e.g., "#FF0000") to an RGB array.
+
   const hexToRgb = (hex) => {
     let normalizedHex = hex.replace("#", "");
     if (normalizedHex.length === 3) {
-      normalizedHex = normalizedHex.split("").map(c => c + c).join("");
+      normalizedHex = normalizedHex.split("").map((c) => c + c).join("");
     }
     const bigint = parseInt(normalizedHex, 16);
     const r = (bigint >> 16) & 255;
@@ -112,31 +98,27 @@ export default function ProcessingPage() {
     const b = bigint & 255;
     return [r, g, b];
   };
- 
-  // Helper function to convert a color string (either "rgb(...)" or hex) to an RGB array.
+
   const parseColor = (color) => {
     if (color.startsWith("rgb(")) {
       return color.match(/\d+/g).map(Number);
     } else if (color.startsWith("#")) {
       return hexToRgb(color);
     }
-    return color; // fallback in case the format is unexpected
+    return color;
   };
- 
-  // This helper processes the current displayed (pixelated) image by replacing every pixel
-  // that exactly matches the old color at the given palette index with the new color.
-  // Updated to use canvas.toBlob for creating a blob URL.
+
   const updateImageForChangedPaletteIndex = (index, newColorStr) => {
     const oldColorStr = currentPalette[index];
     const oldRGB = parseColor(oldColorStr);
     const newRGB = parseColor(newColorStr);
-   
+
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.src = currentDisplayedImage;
-   
+
     img.onload = () => {
       canvas.width = img.width;
       canvas.height = img.height;
@@ -144,7 +126,6 @@ export default function ProcessingPage() {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
       for (let i = 0; i < data.length; i += 4) {
-        // If the pixel exactly matches the old color, replace it with the new color
         if (
           data[i] === oldRGB[0] &&
           data[i + 1] === oldRGB[1] &&
@@ -156,7 +137,6 @@ export default function ProcessingPage() {
         }
       }
       ctx.putImageData(imageData, 0, 0);
-      // Use canvas.toBlob to create a blob URL instead of a data URL
       canvas.toBlob((blob) => {
         if (blob) {
           const objectUrl = URL.createObjectURL(blob);
@@ -164,59 +144,44 @@ export default function ProcessingPage() {
         }
       }, "image/png");
     };
-   
+
     img.onerror = () => {
       alert("Failed to update image for palette change.");
     };
   };
- 
-  // Handle the "Convert" button action.
-  // Here we simply encode the current displayed (processed) image and navigate
-  // to the finished page. Since our processing now produces a blob URL, the finished
-  // page will receive that URL.
 
-  const handleConvert = async () => {
-    const processedImageUrl = encodeURIComponent(currentDisplayedImage);
-    router.push(`/finished?imageUrl=${processedImageUrl}`);
-  };
- 
-  // Handle the "Preview" button action.
-  // If a custom palette is active, it reuses that palette; otherwise, it quantizes the image.
+  // Updated handlePreview to compute stitch count
   const handlePreview = async () => {
-    if (!imageUrl || isProcessing) return; // Do nothing if no image or already processing
- 
-    setIsProcessing(true); // Set processing state
+    if (!imageUrl || isProcessing) return;
+
+    setIsProcessing(true);
     try {
       const img = new Image();
-      img.crossOrigin = "anonymous"; // Allow cross-origin image loading
-      img.src = imageUrl; // Set image source
- 
-      // Wait for the image to load
+      img.crossOrigin = "anonymous";
+      img.src = imageUrl;
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = reject;
       });
- 
-      // Create a canvas to draw the image
+
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
       canvas.width = displayWidth;
       canvas.height = displayHeight;
- 
-      ctx.drawImage(img, 0, 0, displayWidth, displayHeight); // Draw image on canvas
- 
-      // Create a Pixelit instance for pixelation with a consistent scale
+
+      ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
+
       const pixelitInstance = new Pixelit({
         from: img,
         to: canvas,
-        scale: size * 5, // Use the same scale as in other processing functions
+        scale: size * 5,
       });
- 
+
       if (customPaletteActive && currentPalette.length > 0) {
-        // Use the custom (manually edited) palette if active
-        pixelitInstance.setPalette(currentPalette.map(color => parseColor(color)));
+        pixelitInstance.setPalette(
+          currentPalette.map((color) => parseColor(color))
+        );
       } else {
-        // Quantize the image to generate a new palette
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const pixels = [];
         for (let i = 0; i < imageData.data.length; i += 4) {
@@ -226,14 +191,16 @@ export default function ProcessingPage() {
             imageData.data[i + 2],
           ]);
         }
-        const colorMap = quantize(pixels, parseInt(colors)); // Quantize colors
-        const dynamicPalette = colorMap?.palette() || []; // Generate color palette
-        pixelitInstance.setPalette(dynamicPalette); // Set the palette in Pixelit
-        // Update current palette with the quantized result
-        setCurrentPalette(dynamicPalette.map(color => `rgb(${color[0]}, ${color[1]}, ${color[2]})`));
+        const colorMap = quantize(pixels, parseInt(colors));
+        const dynamicPalette = colorMap?.palette() || [];
+        pixelitInstance.setPalette(dynamicPalette);
+        setCurrentPalette(
+          dynamicPalette.map(
+            (color) => `rgb(${color[0]}, ${color[1]}, ${color[2]})`
+          )
+        );
       }
- 
-      // Apply the full processing chain
+
       pixelitInstance
         .setMaxWidth(displayWidth)
         .setMaxHeight(displayHeight)
@@ -241,54 +208,87 @@ export default function ProcessingPage() {
         .convertPalette()
         .resizeImage();
 
-      // Convert the canvas to a blob and use its object URL.
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const objectUrl = URL.createObjectURL(blob);
-          setCurrentDisplayedImage(objectUrl);
-        }
-      }, "image/png");
+      // Convert to blob and update displayed image
+      const blob = await new Promise((resolve) =>
+        canvas.toBlob(resolve, "image/png")
+      );
+      const objectUrl = URL.createObjectURL(blob);
+      setCurrentDisplayedImage(objectUrl);
 
+      // Compute stitch count based on pixelated dimensions
+      const pixelatedImg = new Image();
+      pixelatedImg.src = objectUrl;
+      await new Promise((resolve) => (pixelatedImg.onload = resolve));
+      const pixelCount = pixelatedImg.width * pixelatedImg.height;
+      const newStitchCount = pixelCount * 9; // 9 stitches per pixel
+      setStitchCount(newStitchCount);
     } catch (error) {
       alert("Error generating preview");
     } finally {
-      setIsProcessing(false); // Reset processing state
+      setIsProcessing(false);
     }
   };
- 
-  // Handle the "Revert" button action
-  const handleRevert = () => {
-    setCurrentDisplayedImage(originalImage); // Revert to original image
-    setHue(0); // Reset hue
-    setSaturation(100); // Reset saturation
-    setBrightness(100); // Reset brightness
-    setContrast(100); // Reset contrast
-    setColors(7); // Reset color count
-    setCustomPaletteActive(false); // Disable custom palette so quantization will be used next
+
+  // Updated handleConvert to use stored stitch count
+  const handleConvert = async () => {
+    const blob = await fetch(currentDisplayedImage).then((res) => res.blob());
+    const pixelatedDataUrl = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+
+    const dimensions = calculateDsbDimensions();
+
+    localStorage.setItem(
+      "imageData",
+      JSON.stringify({
+        imageUrl: pixelatedDataUrl,
+        colors: colors,
+        stitchCount: stitchCount, // Use the pre-computed stitch count
+        plusX: dimensions.plusX,
+        minusX: dimensions.minusX,
+        plusY: dimensions.plusY,
+        minusY: dimensions.minusY,
+        ax: dimensions.ax,
+        ay: dimensions.ay,
+      })
+    );
+
+    router.push("/finished");
   };
- 
-  // Update image using a new palette from scratch using blob URL conversion.
+
+  // Existing helper functions (unchanged except calculateStitchCount removed)
+  const handleRevert = () => {
+    setCurrentDisplayedImage(originalImage);
+    setHue(0);
+    setSaturation(100);
+    setBrightness(100);
+    setContrast(100);
+    setColors(7);
+    setCustomPaletteActive(false);
+    setStitchCount(0); // Reset stitch count
+  };
 
   const updateImageWithNewPalette = (updatedPalette) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     const img = new Image();
- 
     img.crossOrigin = "anonymous";
     img.src = imageUrl;
- 
+
     img.onload = () => {
       canvas.width = displayWidth;
       canvas.height = displayHeight;
       ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
- 
+
       const pixelitInstance = new Pixelit({
         from: img,
         to: canvas,
         scale: size * 5,
         palette: updatedPalette.map((color) => parseColor(color)),
       });
- 
+
       pixelitInstance
         .setMaxWidth(displayWidth)
         .setMaxHeight(displayHeight)
@@ -296,7 +296,6 @@ export default function ProcessingPage() {
         .convertPalette()
         .resizeImage();
 
-      // Convert the canvas to a blob and update the displayed image with its blob URL
       canvas.toBlob((blob) => {
         if (blob) {
           const objectUrl = URL.createObjectURL(blob);
@@ -304,49 +303,47 @@ export default function ProcessingPage() {
         }
       }, "image/png");
     };
- 
+
     img.onerror = () => {
       alert("Failed to load the image for palette update.");
     };
   };
- 
-  // Handle live color changes in the palette
+
   const handleColorChange = (newColor) => {
     if (selectedColorIndex === null) return;
- 
-    // Update live palette with the new color (as hex)
     const updatedLivePalette = [...livePalette];
     updatedLivePalette[selectedColorIndex] = newColor.hex;
     setLivePalette(updatedLivePalette);
-
   };
- 
-  // Confirm color changes and update the actual palette.
-  // Instead of reprocessing the original image, we update the current (pixelated) image directly.
+
   const handleColorChangeComplete = () => {
     if (selectedColorIndex === null) return;
- 
-    const oldColor = currentPalette[selectedColorIndex];  // The color before editing
-    const newColor = livePalette[selectedColorIndex];       // The color chosen by the user
- 
-    // Update the palette state and mark custom palette active
+    const newColor = livePalette[selectedColorIndex];
     setCurrentPalette(livePalette);
     setCustomPaletteActive(true);
- 
-    // Directly update the current displayed image's pixel data using blob conversion:
     updateImageForChangedPaletteIndex(selectedColorIndex, newColor);
- 
-    setShowColorPicker(false); // Close color picker
-    setSelectedColorIndex(null); // Reset selection
+    setShowColorPicker(false);
+    setSelectedColorIndex(null);
   };
- 
 
-  // CSS filter string for applying adjustments
+  const calculateDsbDimensions = () => {
+    const totalWidthDsb = size * 254;
+    const totalHeightDsb = size * (originalHeight / originalWidth) * 254;
+    return {
+      plusX: Math.round(totalWidthDsb / 2),
+      minusX: Math.round(totalWidthDsb / 2),
+      plusY: Math.round(totalHeightDsb / 2),
+      minusY: Math.round(totalHeightDsb / 2),
+      ax: 0,
+      ay: 0,
+    };
+  };
+
   const imageFilter = `hue-rotate(${hue}deg) saturate(${saturation}%) brightness(${brightness}%) contrast(${contrast}%)`;
- 
+
+  // JSX (unchanged except adding stitch count display for debugging)
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-[#121212] text-[#D1D1D1]">
-      {/* Navigation Bar */}
       <nav className="w-full bg-gray-800 py-4 px-8 flex justify-between items-center shadow-md">
         <h1 className="text-xl font-semibold text-green-400">Image Editor</h1>
         <Link href="/">
@@ -355,11 +352,9 @@ export default function ProcessingPage() {
           </button>
         </Link>
       </nav>
- 
+
       <div className="flex w-full max-w-7xl gap-6 mt-6">
-        {/* Left Side: Adjustments */}
         <div className="w-1/4 space-y-6">
-          {/* Color Adjustment */}
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Color Adjustment</h2>
             <label>Colors (2-13)</label>
@@ -399,8 +394,7 @@ export default function ProcessingPage() {
               </div>
             )}
           </div>
- 
-          {/* Size Adjustment */}
+
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Size Adjustment</h2>
             <label>Size</label>
@@ -415,10 +409,10 @@ export default function ProcessingPage() {
             />
             <p>Width: {formatDimension(displayWidth)}</p>
             <p>Height: {formatDimension(displayHeight)}</p>
+            <p>Stitch Count: {stitchCount}</p> {/* Optional: For debugging */}
           </div>
         </div>
- 
-        {/* Center: Image Preview */}
+
         <div className="flex-1 flex items-center justify-center">
           <div className="relative">
             <img
@@ -429,11 +423,9 @@ export default function ProcessingPage() {
             />
           </div>
         </div>
- 
-        {/* Right Side: Filter Adjustments */}
+
         <div className="w-1/4 space-y-6">
           <h2 className="text-lg font-semibold">Filter Adjustment</h2>
- 
           <div className="space-y-2">
             <label>Hue</label>
             <input
@@ -446,7 +438,6 @@ export default function ProcessingPage() {
             />
             <p>Value: {hue}°</p>
           </div>
- 
           <div className="space-y-2">
             <label>Saturation</label>
             <input
@@ -459,7 +450,6 @@ export default function ProcessingPage() {
             />
             <p>Value: {saturation}%</p>
           </div>
- 
           <div className="space-y-2">
             <label>Brightness</label>
             <input
@@ -472,7 +462,6 @@ export default function ProcessingPage() {
             />
             <p>Value: {brightness}%</p>
           </div>
- 
           <div className="space-y-2">
             <label>Contrast</label>
             <input
@@ -485,23 +474,18 @@ export default function ProcessingPage() {
             />
             <p>Value: {contrast}%</p>
           </div>
- 
           <div className="space-y-3">
             <button
               onClick={handlePreview}
               disabled={isProcessing}
-              className={`w-full ${
-                isProcessing ? "bg-gray-500 cursor-not-allowed" : "bg-[#00FFAB] hover:bg-[#00E39E]"
-              } text-black px-4 py-2 rounded-lg`}
+              className={`w-full ${isProcessing ? "bg-gray-500 cursor-not-allowed" : "bg-[#00FFAB] hover:bg-[#00E39E]"} text-black px-4 py-2 rounded-lg`}
             >
               {isProcessing ? "Processing..." : "Generate Preview"}
             </button>
             <button
               onClick={handleConvert}
               disabled={isProcessing}
-              className={`w-full ${
-                isProcessing ? "bg-gray-500 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-400"
-              } text-black px-4 py-2 rounded-lg`}
+              className={`w-full ${isProcessing ? "bg-gray-500 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-400"} text-black px-4 py-2 rounded-lg`}
             >
               {isProcessing ? "Processing..." : "Convert"}
             </button>
