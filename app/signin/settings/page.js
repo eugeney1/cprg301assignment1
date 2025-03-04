@@ -1,19 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { useUserAuth } from "../_utils/auth-context";
+import { useAuth } from "../_utils/auth-context"; // ✅ Corrected import
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import "/app/globals.css";
 
 export default function SettingsPage() {
-  const { user, firebaseSignOut } = useUserAuth();
+  const { user, logout } = useAuth(); // ✅ Use `useAuth()`
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const handleSignOut = async () => {
     try {
-      await firebaseSignOut();
+      await logout();
       router.push("/signin");
     } catch (error) {
       console.error("Error signing out:", error);
@@ -31,7 +31,7 @@ export default function SettingsPage() {
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             >
               <img
-                src={user.photoURL || "/default-avatar.png"}
+                src={user?.photoURL || "/default-avatar.png"}
                 alt="Profile"
                 className="w-10 h-10 rounded-full border border-gray-600"
               />
