@@ -97,6 +97,11 @@ export default function FileUploadPage() {
                 className="w-8 h-8 rounded-full border border-gray-600"
               />
             </div>
+            <Link href="/signin/chatbot">
+            <button className="bg-[#00FFAB] text-black px-6 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300">
+              Chat with AI
+            </button>
+          </Link>
             {isDropdownOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-[#181818] rounded-lg shadow-lg">
                 <Link
@@ -105,6 +110,7 @@ export default function FileUploadPage() {
                 >
                   Settings
                 </Link>
+
                 <Link href="/signin/gallery" className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]"> Gallery </Link>
                 <button
                   onClick={handleSignOut}

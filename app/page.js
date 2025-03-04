@@ -1,77 +1,77 @@
-"use client"; // Ensures this component is client-side
+"use client";
 
 import { useState, useRef } from "react";
-import { useRouter } from "next/navigation"; // For client-side navigation
-import Link from "next/link"; // For routing links
-import "/app/globals.css"; // Importing global CSS for styling
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import "/app/globals.css";
 
 export default function FileUploadPage() {
-  const [file, setFile] = useState(null); // State to hold the selected file
-  const [message, setMessage] = useState(""); // Message to display file upload status
-  const [isUploading, setIsUploading] = useState(false); // Track upload state for loader
-  const [progress, setProgress] = useState(0); // Progress bar percentage
-  const [imagePreview, setImagePreview] = useState(null); // Preview of the selected image
-  const fileInputRef = useRef(null); // Reference for the hidden file input
-  const router = useRouter(); // Initialize the useRouter hook
+  const [file, setFile] = useState(null);
+  const [message, setMessage] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [imagePreview, setImagePreview] = useState(null);
+  const fileInputRef = useRef(null);
+  const router = useRouter();
 
-  // Handle file selection (either through input or drag-and-drop)
+  // Handle file selection
   const handleFileSelect = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
-      setFile(selectedFile); // Update file state
-      setImagePreview(URL.createObjectURL(selectedFile)); // Show preview
-      uploadFile(selectedFile); // Upload the file immediately
+      setFile(selectedFile);
+      setImagePreview(URL.createObjectURL(selectedFile));
+      uploadFile(selectedFile);
     }
   };
 
   const handleDragOver = (e) => {
-    e.preventDefault(); // Prevent default drag behavior
+    e.preventDefault();
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
-      setFile(droppedFile); // Update file state
-      setImagePreview(URL.createObjectURL(droppedFile)); // Show preview
-      uploadFile(droppedFile); // Upload the file immediately
+      setFile(droppedFile);
+      setImagePreview(URL.createObjectURL(droppedFile));
+      uploadFile(droppedFile);
     }
   };
 
-  // Handle file upload logic
+  // Handle file upload
   const uploadFile = (file) => {
     setMessage("Uploading...");
     setIsUploading(true);
     setProgress(0);
 
-    // Create local image URL
     const imageUrl = URL.createObjectURL(file);
     setImagePreview(imageUrl);
 
-    // Redirect to process page immediately with the image URL
     router.push(`/process?imageUrl=${encodeURIComponent(imageUrl)}`);
-
-    // Optional: You can still send to server in background if needed
-    const formData = new FormData();
-    formData.append("file", file);
-    
   };
 
   return (
-    <div className="relative flex justify-center items-center min-h-screen bg-[#121212] text-[#D1D1D1]">
-      {/* Sign In Button */}
-      <div className="absolute top-4 right-4">
-        <Link href="/signin">
-          <button
-            className="bg-[#00FFAB] text-black px-6 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300"
-          >
-            Sign In
-          </button>
-        </Link>
-      </div>
+    <div className="relative flex flex-col items-center min-h-screen bg-[#121212] text-[#D1D1D1]">
+      
+      {/* Navigation Bar */}
+      <nav className="w-full bg-[#181818] p-4 fixed top-0 left-0 flex justify-between items-center shadow-md">
+        <h1 className="text-xl text-[#00FFAB] font-semibold px-6">Auto Digitizing</h1>
+        <div className="flex space-x-4">
+          <Link href="/chatbot">
+            <button className="bg-[#00FFAB] text-black px-6 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300">
+              Chat with AI
+            </button>
+          </Link>
+          <Link href="/signin">
+            <button className="bg-gray-700 text-[#00FFAB] px-6 py-2 rounded-full hover:bg-gray-600 transition duration-300">
+              Sign In
+            </button>
+          </Link>
+        </div>
+      </nav>
 
       {/* Upload Section */}
-      <div className="bg-[#181818] p-8 rounded-xl shadow-lg text-center space-y-6 w-full max-w-md">
+      <div className="bg-[#181818] p-8 rounded-xl shadow-lg text-center space-y-6 w-full max-w-md mt-20">
         <h1 className="text-3xl font-semibold text-[#00FFAB]">Welcome to Auto Digitizing</h1>
         <p className="text-lg">Drag & drop an image, or browse to upload.</p>
 
