@@ -105,10 +105,25 @@ export default function FileUploadPage() {
             <div className="flex items-center space-x-2 cursor-pointer" onClick={toggleProfileDropdown}>
               <img src={user?.photoURL || "/default-avatar.png"} alt="User Profile" className="w-8 h-8 rounded-full border border-gray-600" />
             </div>
+            <Link href="/signin/chatbot">
+            <button className="bg-[#00FFAB] text-black px-6 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300">
+              Chat with AI
+            </button>
+          </Link>
             {isDropdownOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-[#181818] rounded-lg shadow-lg">
-                <Link href="/signin/settings" className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]">Settings</Link>
-                <button onClick={logout} className="block w-full text-left px-4 py-2 text-sm text-[#FF3B3B] hover:bg-[#1E1E1E]">
+                <Link
+                  href="/signin/settings"
+                  className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]"
+                >
+                  Settings
+                </Link>
+
+                <Link href="/signin/gallery" className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]"> Gallery </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="block w-full text-left px-4 py-2 text-sm text-[#FF3B3B] hover:bg-[#1E1E1E]"
+                >
                   Sign Out
                 </button>
               </div>
