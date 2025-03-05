@@ -1,29 +1,120 @@
 "use client";
-
-import { useState, useEffect } from "react";
+import Link from "next/link"; // For routing links
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { downloadDSB } from "./dsbUtils"; // adjust the path as needed
+import { useEffect, useState } from "react";
+import { downloadDSB } from "./dsbUtils";
 
 export default function FinishPage() {
   const [imageUrl, setImageUrl] = useState(null);
+  const [progress, setProgress] = useState({
+    stage: "",
+    current: 0,
+    total: 0,
+    message: "",
+  });
+  const [error, setError] = useState(null);
   const searchParams = useSearchParams();
+  const [cleanedImageUrl, setCleanedImageUrl] = useState(null);
 
-  // Get the image URL from query parameters on mount
   useEffect(() => {
-    const url = searchParams.get("imageUrl");
-    if (url) {
-      setImageUrl(url);
-    }
-  }, [searchParams]);
+    const loadStreamSaver = async () => {
+      try {
+        // Add StreamSaver script to the document
+        const script = document.createElement("script");
+        script.src =
+          "https://cdn.jsdelivr.net/npm/streamsaver@latest/StreamSaver.min.js";
+        script.async = true;
+        document.body.appendChild(script);
 
-  // Download the .dsb file using the provided utility function
-  const handleDownloadDSB = async () => {
-    if (!imageUrl) return;
+        return new Promise((resolve) => {
+          script.onload = () => resolve();
+        });
+      } catch (error) {
+        console.error("Error loading StreamSaver:", error);
+        setError("Failed to load required dependencies");
+      }
+    };
+
+    loadStreamSaver();
+  }, []);
+
+  useEffect(() => {
     try {
-      await downloadDSB(imageUrl);
+      // Retrieve data from localStorage
+      const imageData = JSON.parse(localStorage.getItem("imageData"));
+      if (imageData) {
+        setImageUrl(imageData.imageUrl);
+        setCleanedImageUrl(imageData.imageUrl);
+        // Set other necessary state variables if needed
+      }
+    } catch (error) {
+      console.error("Error retrieving image data:", error);
+      setError("Failed to load image data");
+    }
+  }, []);
+
+  const handleDownloadDSB = async () => {
+    if (!imageUrl) {
+      setError("No image URL provided");
+      return;
+    }
+
+    try {
+      setError(null);
+      setProgress({
+        stage: "Loading",
+        current: 0,
+        total: 100,
+        message: "Loading image...",
+      });
+
+      // Retrieve data from localStorage
+      const imageData = JSON.parse(localStorage.getItem("imageData"));
+      if (!imageData) {
+        throw new Error("No image data found in storage");
+      }
+
+      // Pass the data to downloadDSB
+      await downloadDSB(
+        imageData.imageUrl,
+        (stage, current, total, message) => {
+          setProgress({
+            stage,
+            current,
+            total,
+            message:
+              message || `${stage} (${Math.round((current / total) * 100)}%)`,
+          });
+        }
+      );
+
+      setProgress({
+        stage: "Complete",
+        current: 100,
+        total: 100,
+        message: "Download complete!",
+      });
     } catch (error) {
       console.error("Download failed:", error);
+      setError(error.message || "Failed to download DSB file");
+      setProgress({ stage: "", current: 0, total: 0, message: "" });
+    }
+  };
+
+  const getProgressColor = () => {
+    switch (progress.stage) {
+      case "Loading":
+        return "#3B82F6";
+      case "Analysis":
+        return "#8B5CF6";
+      case "Converting":
+        return "#22C55E";
+      case "Finalizing":
+        return "#EAB308";
+      case "Complete":
+        return "#16A34A";
+      default:
+        return "#6B7280";
     }
   };
 
@@ -42,14 +133,22 @@ export default function FinishPage() {
       {/* Main Content */}
       <div className="flex flex-col items-center justify-center p-6">
         <div className="bg-black shadow-lg rounded-lg p-8 mt-10 max-w-md w-full">
-          <h2 className="text-2xl font-bold mb-6 text-center">Processing Complete!</h2>
+          <h2 className="text-2xl font-bold mb-6 text-center">
+            Processing Complete!
+          </h2>
 
-          {imageUrl && (
+          {cleanedImageUrl && (
             <div className="mb-6">
               <img
-                src={imageUrl}
+                src={cleanedImageUrl}
+                crossOrigin="anonymous"
                 alt="Processed"
                 className="w-full h-auto rounded"
+                onError={(e) => {
+                  console.error("Failed to load image:", cleanedImageUrl);
+                  e.target.style.display = "none";
+                  setError("Failed to load image");
+                }}
               />
             </div>
           )}
