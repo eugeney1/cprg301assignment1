@@ -13,22 +13,36 @@ export default function ChatbotScreen() {
 
   const sendMessage = async () => {
     if (!userMessage.trim()) return;
-
-    // Append user message to chat
+  
     const updatedMessages = [...messages, { text: userMessage, sender: "user" }];
     setMessages(updatedMessages);
     setUserMessage("");
     setLoading(true);
-
+  
     try {
-      const aiResponse = await askGemini(userMessage);
+      // Strict instruction to AI: Only answer embroidery-related questions
+      const prompt = `
+        You are an expert embroidery AI assistant. Your job is to provide detailed, accurate, and practical responses about embroidery software, digitizing images, converting files to .DSB format, and optimizing embroidery designs.
+  
+        Guidelines:
+        - ONLY answer questions related to embroidery, digitizing, and machine embroidery.
+        - If a user asks about unrelated topics (e.g., politics, technology, food, or personal advice), respond with:
+          "I specialize in embroidery and digitizing. Let me know how I can help with your embroidery"
+        - Always keep answers **concise, relevant, and helpful** for embroidery professionals and hobbyists.
+  
+        User question: "${userMessage}"
+      `;
+  
+      const aiResponse = await askGemini(prompt);
+  
       setMessages([...updatedMessages, { text: aiResponse, sender: "bot" }]);
     } catch (error) {
       setMessages([...updatedMessages, { text: "Error: Unable to get a response.", sender: "bot" }]);
     }
-
+  
     setLoading(false);
   };
+  
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-[#121212] text-[#D1D1D1] p-6">
