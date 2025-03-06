@@ -39,8 +39,8 @@ public class StitchVisualizer extends JPanel {
     };
 
     public StitchVisualizer() {
-        loadStitchData("SunriseTest.dsb", new int[] { 5, 4, 3, 6, 2, 3, 4, 5, 6, 7, 8, 9, 10 }); // Adjust path and
-                                                                                                 // colors
+        loadStitchData("small1.dsb", new int[] { 5, 4, 3, 6, 2, 3, 4, 5, 6, 7, 8, 9, 10 }); // Adjust path and
+                                                                                            // colors
 
         // Mouse wheel for zoom (optional, kept as fallback)
         addMouseWheelListener(new MouseAdapter() {

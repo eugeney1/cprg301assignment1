@@ -101,23 +101,6 @@ export default function FinishPage() {
     }
   };
 
-  const getProgressColor = () => {
-    switch (progress.stage) {
-      case "Loading":
-        return "#3B82F6";
-      case "Analysis":
-        return "#8B5CF6";
-      case "Converting":
-        return "#22C55E";
-      case "Finalizing":
-        return "#EAB308";
-      case "Complete":
-        return "#16A34A";
-      default:
-        return "#6B7280";
-    }
-  };
-
   return (
     <div className="min-h-screen bg-black">
       {/* Navigation Bar */}
