@@ -202,13 +202,13 @@ export function generatePixel() {
   }
 
   stitches.push({
-    command: DSB_COMMANDS.STITCH,
+    command: DSB_COMMANDS.STITCH_NEG_X,
     y: 0,
     x: pixel_length,
   });
 
   stitches.push({
-    command: DSB_COMMANDS.STITCH,
+    command: DSB_COMMANDS.STITCH_NEG_Y,
     y: pixel_length,
     x: 0,
   });
@@ -464,6 +464,7 @@ export async function downloadDSB(imageUrl, onProgress = null) {
     });
 
     // Fill regions with pixel data
+    // Fill regions with pixel data
     for (let y = 0; y < imageDataObj.height; y++) {
       for (let x = 0; x < imageDataObj.width; x++) {
         const idx = (y * imageDataObj.width + x) * 4;
@@ -471,7 +472,6 @@ export async function downloadDSB(imageUrl, onProgress = null) {
         const g = imageDataObj.data[idx + 1];
         const b = imageDataObj.data[idx + 2];
 
-        // Find the closest color in the palette
         const color = colorMap.map([r, g, b]);
         const colorIndex = palette.findIndex(
           (c) => c[0] === color[0] && c[1] === color[1] && c[2] === color[2]
@@ -481,6 +481,11 @@ export async function downloadDSB(imageUrl, onProgress = null) {
           regions[colorIndex][y][x] = 1;
         }
       }
+    }
+
+    // Reverse the rows in each region to flip the image vertically
+    for (let i = 0; i < regions.length; i++) {
+      regions[i] = regions[i].reverse();
     }
 
     // Set up DSB header info from stored data
