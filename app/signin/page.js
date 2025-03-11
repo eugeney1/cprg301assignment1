@@ -9,7 +9,14 @@ import "/app/globals.css";
 import { FcGoogle } from "react-icons/fc";
 
 export default function FileUploadPage() {
-  const { user, signInWithGoogle, signInWithGithub, signInWithApple, signInWithEmail, logout } = useAuth();
+  const { 
+    user, 
+    signInWithGoogle, 
+    signInWithGithub, // Ensure this function is implemented correctly in your auth context
+    signInWithApple, 
+    signInWithEmail, 
+    logout 
+  } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showSignInOptions, setShowSignInOptions] = useState(false);
@@ -44,6 +51,11 @@ export default function FileUploadPage() {
     }
   };
 
+  const handleSignOut = () => {
+    logout(); // This calls the logout function from your auth context
+    router.push("/"); // Optionally, redirect the user after sign out
+  };
+
   // Close sign-in options if user clicks outside the modal
   const handleClickOutside = (e) => {
     if (e.target.id === "overlay") setShowSignInOptions(false);
@@ -57,23 +69,23 @@ export default function FileUploadPage() {
   const handleFileSelect = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
-      setFile(selectedFile); // Update file state
-      setImagePreview(URL.createObjectURL(selectedFile)); // Show preview
-      uploadFile(selectedFile); // Upload the file immediately
+      setFile(selectedFile);
+      setImagePreview(URL.createObjectURL(selectedFile));
+      uploadFile(selectedFile);
     }
   };
 
   const handleDragOver = (e) => {
-    e.preventDefault(); // Prevent default drag behavior
+    e.preventDefault();
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile) {
-      setFile(droppedFile); // Update file state
-      setImagePreview(URL.createObjectURL(droppedFile)); // Show preview
-      uploadFile(droppedFile); // Upload the file immediately
+      setFile(droppedFile);
+      setImagePreview(URL.createObjectURL(droppedFile));
+      uploadFile(droppedFile);
     }
   };
 
@@ -83,17 +95,16 @@ export default function FileUploadPage() {
     setIsUploading(true);
     setProgress(0);
 
-    // Create local image URL
+    // Create local image URL for preview
     const imageUrl = URL.createObjectURL(file);
     setImagePreview(imageUrl);
 
     // Redirect to process page immediately with the image URL
     router.push(`signin/process?imageUrl=${encodeURIComponent(imageUrl)}`);
 
-    // Optional: You can still send to server in background if needed
+    // Optional: send to server in background if needed
     const formData = new FormData();
     formData.append("file", file);
-    
   };
 
   return (
@@ -103,13 +114,17 @@ export default function FileUploadPage() {
         {user ? (
           <div className="relative">
             <div className="flex items-center space-x-2 cursor-pointer" onClick={toggleProfileDropdown}>
-              <img src={user?.photoURL || "/default-avatar.png"} alt="User Profile" className="w-8 h-8 rounded-full border border-gray-600" />
+              <img 
+                src={user?.photoURL || "/default-avatar.png"} 
+                alt="User Profile" 
+                className="w-8 h-8 rounded-full border border-gray-600" 
+              />
             </div>
             <Link href="/signin/chatbot">
-            <button className="bg-[#00FFAB] text-black px-6 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300">
-              Chat with AI
-            </button>
-          </Link>
+              <button className="bg-[#00FFAB] text-black px-6 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300">
+                Chat with AI
+              </button>
+            </Link>
             {isDropdownOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-[#181818] rounded-lg shadow-lg">
                 <Link
@@ -118,8 +133,12 @@ export default function FileUploadPage() {
                 >
                   Settings
                 </Link>
-
-                <Link href="/signin/gallery" className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]"> Gallery </Link>
+                <Link 
+                  href="/signin/gallery" 
+                  className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]"
+                >
+                  Gallery
+                </Link>
                 <button
                   onClick={handleSignOut}
                   className="block w-full text-left px-4 py-2 text-sm text-[#FF3B3B] hover:bg-[#1E1E1E]"
@@ -139,30 +158,56 @@ export default function FileUploadPage() {
         )}
       </div>
 
-      {/* Sign-in Options Modal (Only Appears When Clicking "Sign In") */}
+      {/* Sign-in Options Modal */}
       {showSignInOptions && !user && (
-        <div id="overlay" className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50" onClick={handleClickOutside}>
+        <div 
+          id="overlay" 
+          className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50" 
+          onClick={handleClickOutside}
+        >
           <div className="bg-[#181818] p-6 rounded-lg shadow-lg w-full max-w-md relative">
             {/* Close Button */}
             <button onClick={toggleSignInOptions} className="absolute top-2 right-2 text-gray-400 hover:text-gray-200">
               <X size={24} />
             </button>
-
             <h2 className="text-2xl font-bold text-[#00FFAB] mb-4">Sign In</h2>
-
-            <button onClick={signInWithGoogle} className="w-full flex items-center justify-center gap-2 bg-red-500 text-white py-2 px-4 rounded-lg shadow hover:bg-red-600">
+            <button 
+              onClick={signInWithGoogle} 
+              className="w-full flex items-center justify-center gap-2 bg-red-500 text-white py-2 px-4 rounded-lg shadow hover:bg-red-600"
+            >
               <FcGoogle size={20} /> Sign in with Google
             </button>
-            <button onClick={signInWithGithub} className="w-full flex items-center justify-center gap-2 bg-gray-800 text-white py-2 px-4 rounded-lg shadow hover:bg-gray-900 mt-2">
+            <button 
+              onClick={signInWithGithub} 
+              className="w-full flex items-center justify-center gap-2 bg-gray-800 text-white py-2 px-4 rounded-lg shadow hover:bg-gray-900 mt-2"
+            >
               <Github size={20} /> Sign in with GitHub
             </button>
-            <button onClick={signInWithApple} className="w-full flex items-center justify-center gap-2 bg-black text-white py-2 px-4 rounded-lg shadow hover:bg-gray-900 mt-2">
+            <button 
+              onClick={signInWithApple} 
+              className="w-full flex items-center justify-center gap-2 bg-black text-white py-2 px-4 rounded-lg shadow hover:bg-gray-900 mt-2"
+            >
               <Apple size={20} /> Sign in with Apple
             </button>
             <div className="border-t my-4"></div>
-            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-2 border rounded-lg mb-3" />
-            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-2 border rounded-lg mb-3" />
-            <button onClick={() => signInWithEmail(email, password)} className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white py-2 px-4 rounded-lg shadow hover:bg-blue-600">
+            <input 
+              type="email" 
+              placeholder="Email" 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)} 
+              className="w-full px-4 py-2 border rounded-lg mb-3" 
+            />
+            <input 
+              type="password" 
+              placeholder="Password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              className="w-full px-4 py-2 border rounded-lg mb-3" 
+            />
+            <button 
+              onClick={() => signInWithEmail(email, password)} 
+              className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white py-2 px-4 rounded-lg shadow hover:bg-blue-600"
+            >
               <Mail size={20} /> Sign in with Email
             </button>
           </div>

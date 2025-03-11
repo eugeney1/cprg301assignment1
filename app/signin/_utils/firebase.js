@@ -1,25 +1,20 @@
 // _utils/firebase.js
 import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
 import { getFirestore } from "firebase/firestore";
- 
-// Your web app's Firebase configuration
-import { 
-  getAuth, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  GithubAuthProvider, 
-  OAuthProvider, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signInWithPhoneNumber, 
-  RecaptchaVerifier, 
-  setPersistence, 
-  browserLocalPersistence 
+import {
+  getAuth,
+  signInWithPopup,
+  GoogleAuthProvider,
+  GithubAuthProvider,
+  OAuthProvider,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPhoneNumber,
+  RecaptchaVerifier,
+  setPersistence,
+  browserLocalPersistence
 } from "firebase/auth";
 
-// 🔹 Firebase Configuration (Uses .env Variables)
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -29,23 +24,21 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// 🔹 Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
 const auth = getAuth(app);
 
-// 🔹 Set Authentication Persistence (Keeps Users Logged In)
 setPersistence(auth, browserLocalPersistence).catch((error) => {
   console.error("Error setting persistence:", error);
 });
 
-// 🔹 Authentication Providers
+// Authentication Providers
 const googleProvider = new GoogleAuthProvider();
 const githubProvider = new GithubAuthProvider();
 const appleProvider = new OAuthProvider("apple.com");
 
-// 🔹 Authentication Functions (Now Handles Errors)
+// Authentication Functions
 const signInWithGoogle = async () => {
   try {
     return await signInWithPopup(auth, googleProvider);
@@ -94,5 +87,12 @@ const signInWithPhone = async (phoneNumber, appVerifier) => {
   }
 };
 
-// 🔹 Export Authentication Functions
-export { auth, signInWithGoogle, signInWithGithub, signInWithApple, signInWithEmail, registerWithEmail, signInWithPhone };
+export {
+  auth,
+  signInWithGoogle,
+  signInWithGithub,
+  signInWithApple,
+  signInWithEmail,
+  registerWithEmail,
+  signInWithPhone
+};
