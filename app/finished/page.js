@@ -1,5 +1,6 @@
 "use client";
-import Link from "next/link"; // For routing links
+
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { downloadDSB } from "./dsbUtils";
@@ -16,16 +17,15 @@ export default function FinishPage() {
   const searchParams = useSearchParams();
   const [cleanedImageUrl, setCleanedImageUrl] = useState(null);
 
+  // Load StreamSaver dependency
   useEffect(() => {
     const loadStreamSaver = async () => {
       try {
-        // Add StreamSaver script to the document
         const script = document.createElement("script");
         script.src =
           "https://cdn.jsdelivr.net/npm/streamsaver@latest/StreamSaver.min.js";
         script.async = true;
         document.body.appendChild(script);
-
         return new Promise((resolve) => {
           script.onload = () => resolve();
         });
@@ -34,18 +34,16 @@ export default function FinishPage() {
         setError("Failed to load required dependencies");
       }
     };
-
     loadStreamSaver();
   }, []);
 
+  // Retrieve image data from localStorage on component mount
   useEffect(() => {
     try {
-      // Retrieve data from localStorage
       const imageData = JSON.parse(localStorage.getItem("imageData"));
       if (imageData) {
         setImageUrl(imageData.imageUrl);
         setCleanedImageUrl(imageData.imageUrl);
-        // Set other necessary state variables if needed
       }
     } catch (error) {
       console.error("Error retrieving image data:", error);
@@ -53,12 +51,36 @@ export default function FinishPage() {
     }
   }, []);
 
+  // Save photo details to the database when cleanedImageUrl is set
+  useEffect(() => {
+    async function savePhoto() {
+      try {
+        // Derive a filename from the URL (using the last segment)
+        const parts = cleanedImageUrl.split("/");
+        const filename = parts[parts.length - 1];
+        const response = await fetch("/api/photos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename, filepath: cleanedImageUrl }),
+        });
+        if (!response.ok) {
+          throw new Error("Failed to save photo");
+        }
+      } catch (error) {
+        console.error("Error saving photo:", error);
+      }
+    }
+    if (cleanedImageUrl) {
+      savePhoto();
+    }
+  }, [cleanedImageUrl]);
+
+  // Handle downloading the image as a .dsb file
   const handleDownloadDSB = async () => {
     if (!imageUrl) {
       setError("No image URL provided");
       return;
     }
-
     try {
       setError(null);
       setProgress({
@@ -67,14 +89,10 @@ export default function FinishPage() {
         total: 100,
         message: "Loading image...",
       });
-
-      // Retrieve data from localStorage
       const imageData = JSON.parse(localStorage.getItem("imageData"));
       if (!imageData) {
         throw new Error("No image data found in storage");
       }
-
-      // Pass the data to downloadDSB
       await downloadDSB(
         imageData.imageUrl,
         (stage, current, total, message) => {
@@ -82,12 +100,10 @@ export default function FinishPage() {
             stage,
             current,
             total,
-            message:
-              message || `${stage} (${Math.round((current / total) * 100)}%)`,
+            message: message || `${stage} (${Math.round((current / total) * 100)}%)`,
           });
         }
       );
-
       setProgress({
         stage: "Complete",
         current: 100,
@@ -101,6 +117,7 @@ export default function FinishPage() {
     }
   };
 
+  // Helper function to set progress bar color based on stage
   const getProgressColor = () => {
     switch (progress.stage) {
       case "Loading":
@@ -126,6 +143,11 @@ export default function FinishPage() {
         <Link href="/">
           <button className="bg-green-500 hover:bg-green-600 text-black px-4 py-2 rounded transition">
             Return to Main Page
+          </button>
+        </Link>
+        <Link href="/gallery">
+          <button className="bg-green-500 hover:bg-green-600 text-black px-4 py-2 rounded transition">
+            Gallery
           </button>
         </Link>
       </nav>
@@ -159,6 +181,18 @@ export default function FinishPage() {
           >
             Download as .dsb File
           </button>
+
+          {progress.stage && (
+            <div className="mt-4">
+              <p style={{ color: getProgressColor() }}>{progress.message}</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="mt-4">
+              <p className="text-red-500">{error}</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
