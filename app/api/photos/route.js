@@ -1,6 +1,5 @@
-// app/api/photos/route.js
 import { NextResponse } from 'next/server';
-import db from '../../../db'; // Make sure this relative path correctly points to db.js at the root
+import db from '../../../db';
 
 export async function GET() {
   return new Promise((resolve) => {
@@ -28,5 +27,19 @@ export async function POST(request) {
         resolve(new NextResponse(JSON.stringify({ id: this.lastID }), { status: 201 }));
       }
     );
+  });
+}
+
+// NEW DELETE METHOD
+export async function DELETE(request) {
+  const { id } = await request.json();
+  return new Promise((resolve) => {
+    db.run('DELETE FROM photos WHERE id = ?', [id], function (err) {
+      if (err) {
+        console.error(err);
+        return resolve(new NextResponse(JSON.stringify({ error: err.message }), { status: 500 }));
+      }
+      resolve(new NextResponse(JSON.stringify({ message: 'Photo deleted successfully' }), { status: 200 }));
+    });
   });
 }

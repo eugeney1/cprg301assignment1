@@ -23,20 +23,35 @@ export default function GalleryPage() {
     fetchPhotos();
   }, []);
 
-  // Helper function to convert timestamp string to a valid Date object.
-  // This replaces the space with a "T" to form an ISO-compliant date string.
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this photo?')) return;
+
+    try {
+      const res = await fetch('/api/photos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+
+      if (res.ok) {
+        setPhotos((prevPhotos) => prevPhotos.filter(photo => photo.id !== id));
+      } else {
+        console.error('Failed to delete photo');
+      }
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+    }
+  };
+
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return "";
     const isoString = timestamp.replace(" ", "T") + "Z";
     const dateObj = new Date(isoString);
-    return isNaN(dateObj.getTime())
-      ? timestamp
-      : dateObj.toLocaleString();
+    return isNaN(dateObj.getTime()) ? timestamp : dateObj.toLocaleString();
   };
-  
+
   return (
     <div className="min-h-screen bg-gray-900 text-gray-200">
-      {/* Navigation Bar */}
       <nav className="w-full bg-gray-800 py-4 px-8 flex justify-between items-center shadow-lg">
         <h1 className="text-2xl font-bold text-green-400">Photo Gallery</h1>
         <Link href="/">
@@ -46,7 +61,6 @@ export default function GalleryPage() {
         </Link>
       </nav>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto py-10 px-4">
         <h2 className="text-4xl font-extrabold text-center mb-10">
           Your Gallery
@@ -75,6 +89,12 @@ export default function GalleryPage() {
                   <p className="text-sm text-gray-400">
                     {formatTimestamp(photo.timestamp)}
                   </p>
+                  <button
+                    onClick={() => handleDelete(photo.id)}
+                    className="mt-4 w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-500 transition-all duration-200"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             ))}
@@ -88,7 +108,6 @@ export default function GalleryPage() {
         )}
       </main>
 
-      {/* Footer */}
       <footer className="w-full bg-gray-800 py-4 mt-10">
         <div className="max-w-7xl mx-auto text-center text-gray-500 text-sm">
           &copy; {new Date().getFullYear()} Your Company. All rights reserved.
