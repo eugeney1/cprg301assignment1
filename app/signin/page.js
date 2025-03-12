@@ -134,7 +134,7 @@ export default function FileUploadPage() {
                   Settings
                 </Link>
                 <Link 
-                  href="/signin/gallery" 
+                  href="/gallery" 
                   className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]"
                 >
                   Gallery
