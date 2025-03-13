@@ -1,20 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useUserAuth } from "../_utils/auth-context";
+import { useAuth } from "../_utils/auth-context";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import "/app/globals.css";
 
 export default function GalleryPage() {
-  const { user, firebaseSignOut } = useUserAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [images, setImages] = useState([]);
 
   const handleSignOut = async () => {
     try {
-      await firebaseSignOut();
+      await logout();
       router.push("/signin");
     } catch (error) {
       console.error("Error signing out:", error);
