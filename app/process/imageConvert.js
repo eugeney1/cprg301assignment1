@@ -15,11 +15,11 @@ const DSB_COMMANDS = {
 const STITCH_HEIGHT_OFFSET = 3; // Units to move up/down between stitches
 const MAX_JUMP = 255;
 
-export { DSBWriter, downloadDSB, convertImageToDSB };
+export { convertImageToDSB, downloadDSB, DSBWriter };
 
 class DSBWriter {
   constructor() {
-    this.buffer = []; 
+    this.buffer = [];
     this.currentX = 0;
     this.currentY = 0;
     this.maxX = 0;
@@ -31,37 +31,43 @@ class DSBWriter {
   }
 
   generateHeader() {
-    const header = new Uint8Array(512); // 512-byte header
+    const header = new Uint8Array(512).fill(0x20); // Start with all spaces
     const encoder = new TextEncoder();
-
-    // 1. Label with newline (20 bytes total)
-    const label = "LA:~temp.qe DSC.QEP\n"; // <-- Added \n
-    let result = encoder.encodeInto(label, header.subarray(0, 20)); // Write to first 20 bytes
-    let offset = result.written; // Track actual bytes used (should be 20)
-
-    // 2. Header lines to write
-    const headerInfo = [
-      `ST:      ${this.stitchCount}`,
-      `CO:  ${this.colorChanges}`,
-      `+X:    ${Math.max(0, this.maxX)}`,
-      `-X:    ${Math.abs(Math.min(0, this.minX))}`,
-      `+Y:    ${Math.max(0, this.maxY)}`,
-      `-Y:    ${Math.abs(Math.min(0, this.minY))}`,
-      `AX:+    ${this.currentX}`,
-      `AY:+    ${this.currentY}`,
+    let offset = 0;
+  
+    // 1. Write structured header lines
+    const lines = [
+      'LA:~temp.qe DSC.QEP\n',
+      `ST:      ${this.stitchCount}\n`,  // 6 spaces after colon
+      `CO:  ${this.colorChanges}\n`,     // 2 spaces after colon
+      `+X:    ${this.maxX}\n`,           // 4 spaces after colon
+      `-X:    ${Math.abs(this.minX)}\n`,
+      `+Y:    ${this.maxY}\n`,
+      `-Y:    ${Math.abs(this.minY)}\n`,
+      `AX:+    ${this.currentX}\n`,      // 4 spaces after +
+      `AY:+    ${this.currentY}\n`
     ];
-
-    // 3. Write each line after the label
-    for (const line of headerInfo) {
-      result = encoder.encodeInto(line + "\n", header.subarray(offset));
-      offset += result.written; // Update offset based on bytes actually written
+  
+    // 2. Write lines with LF endings
+    for (const line of lines) {
+      offset += encoder.encodeInto(line, header.subarray(offset)).written;
     }
-
-    // 4. Fill remaining space
-    header.fill(0x20, offset, 512);
-
+  
+    // 3. Fill up to 0x1f0 (496) with spaces (already done by initial fill)
+  
+    // 4. Insert EXACT null/space pattern at 0x1f0
+    header.set(
+      [
+        0x20, 0x20, 0x20, // 3 spaces (ASCII '   ')
+        0x00, 0x00, 0x00, 0x00, // 4 null bytes
+        0x20, // 1 space
+        0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20 // 7 spaces
+      ],
+      0x1f0 // 496 decimal
+    );
+  
     return header;
-}
+  }
 
   // Initial positioning jumps to get to start position
   // Assume we are starting the design in the top left
@@ -115,8 +121,8 @@ async function convertImageToDSB(imageData) {
 
       // Generate and add stitches for this region
       const stitches = generateFillStitches(region);
-      stitches.forEach(stitch => {
-          dsb.buffer.push(stitch.command, stitch.x, stitch.y);
+      stitches.forEach((stitch) => {
+        dsb.buffer.push(stitch.command, stitch.x, stitch.y);
       });
     }
 
@@ -133,12 +139,11 @@ async function convertImageToDSB(imageData) {
     console.error("Error converting image to DSB:", error);
     throw error;
   }
-
 }
 
 /**
  *
- * 
+ *
  * @param {*} image
  * @returns
  *
@@ -181,7 +186,8 @@ async function convertImageToDSB(imageData) {
  */
 
 // In imageConvert.js
-async function floodFill(imageData) { // Accept ImageData directly
+async function floodFill(imageData) {
+  // Accept ImageData directly
   let regions = [];
   const data = imageData.data;
   const width = imageData.width;
@@ -205,10 +211,10 @@ async function floodFill(imageData) { // Accept ImageData directly
   const colorArrays = {};
 
   // Initialize 2D arrays with zeros
-  uniqueColors.forEach(color => {
-    colorArrays[color] = Array(height).fill().map(() => 
-      Array(width).fill(0)
-    );
+  uniqueColors.forEach((color) => {
+    colorArrays[color] = Array(height)
+      .fill()
+      .map(() => Array(width).fill(0));
   });
 
   // Second pass: fill the arrays
@@ -357,12 +363,12 @@ async function downloadDSB(imageUrl) {
     // 1. Fetch the image
     const response = await fetch(imageUrl);
     const imageBlob = await response.blob();
-    
+
     // 2. Convert blob to ImageData
     const imageData = await new Promise((resolve) => {
       const img = new Image();
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
 
       img.onload = () => {
         canvas.width = img.width;
@@ -370,20 +376,20 @@ async function downloadDSB(imageUrl) {
         ctx.drawImage(img, 0, 0);
         resolve(ctx.getImageData(0, 0, img.width, img.height));
       };
-      
+
       img.src = URL.createObjectURL(imageBlob);
     });
 
     // 3. Process directly in main thread
     const dsb = new DSBWriter();
     let pixel = generatePixel();
-    for (const command of pixel){
+    for (const command of pixel) {
       console.log(command);
       dsb.buffer.push(command[0]);
       dsb.buffer.push(command[1]);
       dsb.buffer.push(command[2]);
     }
-    
+
     /*
     const regions = await floodFill(imageData);
     
