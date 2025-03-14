@@ -12,7 +12,7 @@ export default function FileUploadPage() {
   const { 
     user, 
     signInWithGoogle, 
-    signInWithGithub, // Ensure this function is implemented correctly in your auth context
+    signInWithGithub, 
     signInWithApple, 
     signInWithEmail, 
     logout 
@@ -52,8 +52,8 @@ export default function FileUploadPage() {
   };
 
   const handleSignOut = () => {
-    logout(); // This calls the logout function from your auth context
-    router.push("/"); // Optionally, redirect the user after sign out
+    logout(); // Calls the logout function from your auth context
+    router.push("/"); // Optionally redirect after sign out
   };
 
   // Close sign-in options if user clicks outside the modal
@@ -108,12 +108,12 @@ export default function FileUploadPage() {
   };
 
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen bg-[#121212] text-[#D1D1D1]">
-      {/* Sign In Button (Top Right Corner) */}
-      <div className="absolute top-4 right-4">
+    <div className="min-h-screen bg-[#121212] text-[#D1D1D1]">
+      {/* Header with Sign In/Profile Options */}
+      <header className="w-full p-4 flex justify-end items-center bg-[#181818]">
         {user ? (
-          <div className="relative">
-            <div className="flex items-center space-x-2 cursor-pointer" onClick={toggleProfileDropdown}>
+          <div className="relative flex items-center space-x-4">
+            <div className="cursor-pointer" onClick={toggleProfileDropdown}>
               <img 
                 src={user?.photoURL || "/default-avatar.png"} 
                 alt="User Profile" 
@@ -121,12 +121,17 @@ export default function FileUploadPage() {
               />
             </div>
             <Link href="/signin/chatbot">
-              <button className="bg-[#00FFAB] text-black px-6 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300">
+              <button className="bg-[#00FFAB] text-black px-4 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300">
                 Chat with AI
               </button>
             </Link>
+            <Link href="/signin/community">
+              <button className="bg-gray-700 text-[#00FFAB] px-4 py-2 rounded-full hover:bg-gray-600 transition duration-300">
+                Community
+              </button>
+            </Link>
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-[#181818] rounded-lg shadow-lg">
+              <div className="absolute right-0 mt-12 w-48 bg-[#181818] rounded-lg shadow-lg">
                 <Link
                   href="/signin/settings"
                   className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]"
@@ -156,7 +161,82 @@ export default function FileUploadPage() {
             Sign In
           </button>
         )}
-      </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex flex-col items-center justify-center p-4">
+        <div className="bg-[#181818] p-8 rounded-xl shadow-lg text-center space-y-6 w-full max-w-md">
+          <h1 className="text-3xl font-semibold text-[#00FFAB]">Welcome to Auto Digitizing</h1>
+          <p className="text-lg">Drag & drop an image, or browse to upload.</p>
+
+          {/* File Upload Section */}
+          <div
+            className="upload-box border-2 border-dashed border-[#00FFAB] p-10 text-center cursor-pointer transition-colors duration-300 hover:border-[#00E39E] hover:bg-[#1E1E1E]"
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
+            {!file ? (
+              <div>
+                <p className="mb-2">Drag & Drop your image here</p>
+                <p>or</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="file-input hidden"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                />
+                <button
+                  className="text-[#00FFAB] underline hover:text-[#00E39E] focus:outline-none"
+                  onClick={() => fileInputRef.current.click()}
+                >
+                  Browse Files
+                </button>
+                <h3 className="text-sm text-gray-400 mt-4">Max File Size: 1GB</h3>
+                <h6 className="text-xs text-gray-500">By proceeding, you agree to our terms of use.</h6>
+              </div>
+            ) : (
+              <div>
+                <p className="text-gray-300">File selected: {file.name}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Image Preview */}
+          {imagePreview && (
+            <div className="mt-4">
+              <img
+                src={imagePreview}
+                alt="Preview"
+                className="max-w-full h-auto rounded-lg shadow-md border border-gray-700"
+              />
+            </div>
+          )}
+
+          {/* Progress Bar */}
+          {isUploading && (
+            <div className="mt-4">
+              <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-[#00FFAB] h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                ></div>
+              </div>
+              <p className="text-sm text-[#D1D1D1] mt-2">{Math.round(progress)}%</p>
+            </div>
+          )}
+
+          {/* Loading Spinner */}
+          {isUploading && (
+            <div className="mt-4">
+              <div className="animate-spin h-12 w-12 border-4 border-t-4 border-[#00FFAB] rounded-full mx-auto"></div>
+            </div>
+          )}
+
+          {/* Message */}
+          <p className="text-lg text-[#D1D1D1] mt-4">{message}</p>
+        </div>
+      </main>
 
       {/* Sign-in Options Modal */}
       {showSignInOptions && !user && (
@@ -213,79 +293,6 @@ export default function FileUploadPage() {
           </div>
         </div>
       )}
-
-      {/* Upload Section */}
-      <div className="bg-[#181818] p-8 rounded-xl shadow-lg text-center space-y-6 w-full max-w-md">
-        <h1 className="text-3xl font-semibold text-[#00FFAB]">Welcome to Auto Digitizing</h1>
-        <p className="text-lg">Drag & drop an image, or browse to upload.</p>
-
-        {/* File Upload Section */}
-        <div
-          className="upload-box border-2 border-dashed border-[#00FFAB] p-10 text-center cursor-pointer transition-colors duration-300 hover:border-[#00E39E] hover:bg-[#1E1E1E]"
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-        >
-          {!file ? (
-            <div>
-              <p className="mb-2">Drag & Drop your image here</p>
-              <p>or</p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="file-input hidden"
-                accept="image/*"
-                onChange={handleFileSelect}
-              />
-              <button
-                className="text-[#00FFAB] underline hover:text-[#00E39E] focus:outline-none"
-                onClick={() => fileInputRef.current.click()}
-              >
-                Browse Files
-              </button>
-              <h3 className="text-sm text-gray-400 mt-4">Max File Size: 1GB</h3>
-              <h6 className="text-xs text-gray-500">By proceeding, you agree to our terms of use.</h6>
-            </div>
-          ) : (
-            <div>
-              <p className="text-gray-300">File selected: {file.name}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Image Preview */}
-        {imagePreview && (
-          <div className="mt-4">
-            <img
-              src={imagePreview}
-              alt="Preview"
-              className="max-w-full h-auto rounded-lg shadow-md border border-gray-700"
-            />
-          </div>
-        )}
-
-        {/* Progress Bar */}
-        {isUploading && (
-          <div className="mt-4">
-            <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-              <div
-                className="bg-[#00FFAB] h-2 rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              ></div>
-            </div>
-            <p className="text-sm text-[#D1D1D1] mt-2">{Math.round(progress)}%</p>
-          </div>
-        )}
-
-        {/* Loading Spinner */}
-        {isUploading && (
-          <div className="mt-4">
-            <div className="animate-spin h-12 w-12 border-4 border-t-4 border-[#00FFAB] rounded-full mx-auto"></div>
-          </div>
-        )}
-
-        {/* Message */}
-        <p className="text-lg text-[#D1D1D1] mt-4">{message}</p>
-      </div>
     </div>
   );
 }

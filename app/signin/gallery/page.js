@@ -1,93 +1,102 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useAuth } from "../_utils/auth-context";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import "/app/globals.css";
 
 export default function GalleryPage() {
-  const { user, logout } = useAuth();
-  const router = useRouter();
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [images, setImages] = useState([]);
+  const [photos, setPhotos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleSignOut = async () => {
-    try {
-      await logout();
-      router.push("/signin");
-    } catch (error) {
-      console.error("Error signing out:", error);
+  useEffect(() => {
+    async function fetchPhotos() {
+      try {
+        const res = await fetch('/api/photos');
+        const data = await res.json();
+        // Filter out duplicate photos based on id:
+        const uniquePhotos = data.filter((photo, index, self) =>
+          index === self.findIndex((p) => p.id === photo.id)
+        );
+        setPhotos(uniquePhotos);
+      } catch (error) {
+        console.error('Error fetching photos:', error);
+      } finally {
+        setLoading(false);
+      }
     }
+    fetchPhotos();
+  }, []);
+  
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return "";
+    const isoString = timestamp.replace(" ", "T") + "Z";
+    const dateObj = new Date(isoString);
+    return isNaN(dateObj.getTime()) ? timestamp : dateObj.toLocaleString();
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#121212] text-[#D1D1D1]">
-      {/* Header */}
-      <div className="absolute top-4 right-4">
-        {user ? (
-          <div className="relative">
-            <div
-              className="flex items-center space-x-2 cursor-pointer"
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            >
-              <img
-                src={user.photoURL || "/default-avatar.png"}
-                alt="Profile"
-                className="w-10 h-10 rounded-full border border-gray-600"
-              />
-            </div>
-            {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-[#181818] rounded-lg shadow-lg">
-                <Link
-                  href="/signin"
-                  className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]"
-                >
-                  Home
-                </Link>
-                <Link
-                  href="/signin/settings"
-                  className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]"
-                >
-                  Settings
-                </Link>
-                <button
-                  onClick={handleSignOut}
-                  className="block w-full text-left px-4 py-2 text-sm text-[#FF3B3B] hover:bg-[#1E1E1E]"
-                >
-                  Sign Out
-                </button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <Link href="/signin" className="btn-primary">
-            Sign In
-          </Link>
-        )}
-      </div>
+    <div className="min-h-screen bg-gray-900 text-gray-200">
+      <nav className="w-full bg-gray-800 py-4 px-8 flex justify-between items-center shadow-lg">
+        <h1 className="text-2xl font-bold text-green-400">Photo Gallery</h1>
+        <Link href="/signin">
+          <button className="bg-green-500 text-black px-4 py-2 rounded-md hover:bg-green-400 transition-all duration-200">
+            Return to Main Page
+          </button>
+        </Link>
+      </nav>
 
-      {/* Gallery */}
-      <div className="bg-[#181818] p-8 rounded-xl shadow-lg text-center w-full max-w-5xl">
-        <h1 className="text-3xl font-semibold text-[#00FFAB] mb-6">
-          My Embroidery Gallery
-        </h1>
-        {images.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {images.map((imgSrc, index) => (
-              <div key={index} className="overflow-hidden rounded-lg">
+      <main className="max-w-7xl mx-auto py-10 px-4">
+        <h2 className="text-4xl font-extrabold text-center mb-10">
+          Your Gallery
+        </h2>
+
+        {loading ? (
+          <div className="flex justify-center items-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-green-500"></div>
+          </div>
+        ) : photos.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {photos.map((photo) => (
+              <div
+                key={photo.id}
+                className="bg-gray-800 rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-transform duration-300"
+              >
                 <img
-                  src={imgSrc}
-                  alt={`Embroidery ${index + 1}`}
-                  className="w-full h-auto object-cover transform hover:scale-105 transition-transform duration-300"
+                  src={photo.filepath}
+                  alt={photo.filename}
+                  className="w-full h-64 object-cover"
                 />
+                <div className="p-4">
+                  <p className="text-xl font-semibold text-green-300">
+                    {photo.filename}
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    {formatTimestamp(photo.timestamp)}
+                  </p>
+                  <button
+                    onClick={() => handleDelete(photo.id)}
+                    className="mt-4 w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-500 transition-all duration-200"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         ) : (
-          <p>No embroidery images found.</p>
+          <div className="text-center py-20">
+            <p className="text-lg text-gray-400">
+              No photos available yet. Please check back later.
+            </p>
+          </div>
         )}
-      </div>
+      </main>
+
+      <footer className="w-full bg-gray-800 py-4 mt-10">
+        <div className="max-w-7xl mx-auto text-center text-gray-500 text-sm">
+          &copy; {new Date().getFullYear()} Your Company. All rights reserved.
+        </div>
+      </footer>
     </div>
   );
 }
