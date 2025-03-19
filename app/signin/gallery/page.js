@@ -13,11 +13,7 @@ export default function GalleryPage() {
       try {
         const res = await fetch('/api/photos');
         const data = await res.json();
-        // Filter out duplicate photos based on id:
-        const uniquePhotos = data.filter((photo, index, self) =>
-          index === self.findIndex((p) => p.id === photo.id)
-        );
-        setPhotos(uniquePhotos);
+        setPhotos(data);
       } catch (error) {
         console.error('Error fetching photos:', error);
       } finally {
@@ -26,7 +22,27 @@ export default function GalleryPage() {
     }
     fetchPhotos();
   }, []);
-  
+
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this photo?')) return;
+
+    try {
+      const res = await fetch('/api/photos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+
+      if (res.ok) {
+        setPhotos((prevPhotos) => prevPhotos.filter(photo => photo.id !== id));
+      } else {
+        console.error('Failed to delete photo');
+      }
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+    }
+  };
+
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return "";
     const isoString = timestamp.replace(" ", "T") + "Z";
@@ -38,7 +54,7 @@ export default function GalleryPage() {
     <div className="min-h-screen bg-gray-900 text-gray-200">
       <nav className="w-full bg-gray-800 py-4 px-8 flex justify-between items-center shadow-lg">
         <h1 className="text-2xl font-bold text-green-400">Photo Gallery</h1>
-        <Link href="/signin">
+        <Link href="/">
           <button className="bg-green-500 text-black px-4 py-2 rounded-md hover:bg-green-400 transition-all duration-200">
             Return to Main Page
           </button>

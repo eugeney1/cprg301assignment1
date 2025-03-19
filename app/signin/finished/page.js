@@ -16,8 +16,6 @@ export default function FinishPage() {
   const [error, setError] = useState(null);
   const searchParams = useSearchParams();
   const [cleanedImageUrl, setCleanedImageUrl] = useState(null);
-  const [photoSaved, setPhotoSaved] = useState(false);
-
 
   // Load StreamSaver dependency
   useEffect(() => {
@@ -53,25 +51,13 @@ export default function FinishPage() {
     }
   }, []);
 
+  // Save photo details to the database when cleanedImageUrl is set
   useEffect(() => {
     async function savePhoto() {
       try {
         // Derive a filename from the URL (using the last segment)
-        const parts = cleanedImageUrl.split("/");
+        const parts = cleanedImageUrl.split("/signin");
         const filename = parts[parts.length - 1];
-  
-        // Fetch current photos to check for duplicates
-        const checkRes = await fetch("/api/photos");
-        const existingPhotos = await checkRes.json();
-        const duplicate = existingPhotos.find(photo => photo.filename === filename);
-        
-        if (duplicate) {
-          console.log("Photo already exists. Skipping save.");
-          setPhotoSaved(true);
-          return;
-        }
-        
-        // Save the photo if not a duplicate
         const response = await fetch("/api/photos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -79,20 +65,16 @@ export default function FinishPage() {
         });
         if (!response.ok) {
           throw new Error("Failed to save photo");
-        } else {
-          setPhotoSaved(true); // Mark as saved
         }
       } catch (error) {
         console.error("Error saving photo:", error);
       }
     }
-    if (cleanedImageUrl && !photoSaved) {
+    if (cleanedImageUrl) {
       savePhoto();
     }
-  }, [cleanedImageUrl, photoSaved]);
-  
+  }, [cleanedImageUrl]);
 
-  
   // Handle downloading the image as a .dsb file
   const handleDownloadDSB = async () => {
     if (!imageUrl) {
@@ -158,7 +140,7 @@ export default function FinishPage() {
       {/* Navigation Bar */}
       <nav className="w-full bg-gray-800 py-4 px-8 flex justify-between items-center shadow-md">
         <h1 className="text-xl font-bold text-white">Auto Digitizing</h1>
-        <Link href="/">
+        <Link href="/signin">
           <button className="bg-green-500 hover:bg-green-600 text-black px-4 py-2 rounded transition">
             Return to Main Page
           </button>
