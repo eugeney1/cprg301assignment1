@@ -116,6 +116,11 @@ export default function FileUploadPage() {
 
   {/* Right side: Sign In, Chat with AI, Community buttons */}
   <div className="flex items-center space-x-4">
+  <Link href="/background-removal">
+  <button className="bg-[#002aff] text-black px-6 py-2 rounded-full hover:bg-[#0077cc] transition duration-300">
+    Remove Background
+  </button>
+</Link>
     <Link href="/signin/chatbot">
       <button className="bg-[#00FFAB] text-black px-4 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300">
         Chat with AI
