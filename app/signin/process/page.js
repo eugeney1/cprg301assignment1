@@ -611,3 +611,5 @@ const findClosestColorIndex = (pickedColor) => {
 
 }
 
+
+
