@@ -7,6 +7,7 @@ import { downloadDSB } from "./dsbUtils";
 
 export default function FinishPage() {
   const [imageUrl, setImageUrl] = useState(null);
+  const [cleanedImageUrl, setCleanedImageUrl] = useState(null);
   const [progress, setProgress] = useState({
     stage: "",
     current: 0,
@@ -14,64 +15,58 @@ export default function FinishPage() {
     message: "",
   });
   const [error, setError] = useState(null);
-  const searchParams = useSearchParams();
-  const [cleanedImageUrl, setCleanedImageUrl] = useState(null);
-  const [photoSaved, setPhotoSaved] = useState(false);
 
+  const searchParams = useSearchParams();
 
   // Load StreamSaver dependency
   useEffect(() => {
     const loadStreamSaver = async () => {
       try {
         const script = document.createElement("script");
-        script.src =
-          "https://cdn.jsdelivr.net/npm/streamsaver@latest/StreamSaver.min.js";
+        script.src = "https://cdn.jsdelivr.net/npm/streamsaver@latest/StreamSaver.min.js";
         script.async = true;
         document.body.appendChild(script);
         return new Promise((resolve) => {
           script.onload = () => resolve();
         });
-      } catch (error) {
-        console.error("Error loading StreamSaver:", error);
+      } catch (err) {
+        console.error("Error loading StreamSaver:", err);
         setError("Failed to load required dependencies");
       }
     };
     loadStreamSaver();
   }, []);
 
-  // Retrieve image data from localStorage on component mount
+  // Retrieve image data from query parameter or localStorage
   useEffect(() => {
-    try {
-      const imageData = JSON.parse(localStorage.getItem("imageData"));
-      if (imageData) {
-        setImageUrl(imageData.imageUrl);
-        setCleanedImageUrl(imageData.imageUrl);
+    const queryUrl = searchParams.get("imageUrl");
+    if (queryUrl) {
+      // If there's a query param, use that
+      const decodedUrl = decodeURIComponent(queryUrl);
+      setImageUrl(decodedUrl);
+      setCleanedImageUrl(decodedUrl);
+    } else {
+      // Otherwise, fallback to localStorage
+      try {
+        const imageData = JSON.parse(localStorage.getItem("imageData"));
+        if (imageData) {
+          setImageUrl(imageData.imageUrl);
+          setCleanedImageUrl(imageData.imageUrl);
+        }
+      } catch (err) {
+        console.error("Error retrieving image data from localStorage:", err);
+        setError("Failed to load image data");
       }
-    } catch (error) {
-      console.error("Error retrieving image data:", error);
-      setError("Failed to load image data");
     }
-  }, []);
+  }, [searchParams]);
 
+  // Save photo details to the database when cleanedImageUrl is set
   useEffect(() => {
     async function savePhoto() {
       try {
         // Derive a filename from the URL (using the last segment)
         const parts = cleanedImageUrl.split("/");
         const filename = parts[parts.length - 1];
-  
-        // Fetch current photos to check for duplicates
-        const checkRes = await fetch("/api/photos");
-        const existingPhotos = await checkRes.json();
-        const duplicate = existingPhotos.find(photo => photo.filename === filename);
-        
-        if (duplicate) {
-          console.log("Photo already exists. Skipping save.");
-          setPhotoSaved(true);
-          return;
-        }
-        
-        // Save the photo if not a duplicate
         const response = await fetch("/api/photos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -79,20 +74,17 @@ export default function FinishPage() {
         });
         if (!response.ok) {
           throw new Error("Failed to save photo");
-        } else {
-          setPhotoSaved(true); // Mark as saved
         }
-      } catch (error) {
-        console.error("Error saving photo:", error);
+      } catch (err) {
+        console.error("Error saving photo:", err);
       }
     }
-    if (cleanedImageUrl && !photoSaved) {
+
+    if (cleanedImageUrl) {
       savePhoto();
     }
-  }, [cleanedImageUrl, photoSaved]);
-  
+  }, [cleanedImageUrl]);
 
-  
   // Handle downloading the image as a .dsb file
   const handleDownloadDSB = async () => {
     if (!imageUrl) {
@@ -107,12 +99,9 @@ export default function FinishPage() {
         total: 100,
         message: "Loading image...",
       });
-      const imageData = JSON.parse(localStorage.getItem("imageData"));
-      if (!imageData) {
-        throw new Error("No image data found in storage");
-      }
+      // Use the imageUrl from state (which is either from query param or localStorage)
       await downloadDSB(
-        imageData.imageUrl,
+        imageUrl,
         (stage, current, total, message) => {
           setProgress({
             stage,
@@ -128,9 +117,9 @@ export default function FinishPage() {
         total: 100,
         message: "Download complete!",
       });
-    } catch (error) {
-      console.error("Download failed:", error);
-      setError(error.message || "Failed to download DSB file");
+    } catch (err) {
+      console.error("Download failed:", err);
+      setError(err.message || "Failed to download DSB file");
       setProgress({ stage: "", current: 0, total: 0, message: "" });
     }
   };

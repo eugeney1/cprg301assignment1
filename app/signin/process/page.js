@@ -239,7 +239,7 @@ const findClosestColorIndex = (pickedColor) => {
     const processedImageUrl = encodeURIComponent(currentDisplayedImage);
     router.push(`/signin/finished?imageUrl=${processedImageUrl}`);
   };
-
+  
   // Handle the "Preview" button action.
   // If a custom palette is active, it reuses that palette; otherwise, it quantizes the image.
   const handlePreview = async () => {
@@ -610,4 +610,3 @@ const findClosestColorIndex = (pickedColor) => {
   );
 
 }
-
