@@ -85,9 +85,9 @@ export default function BackgroundRemovalPage() {
       <header className="w-full p-4 flex justify-between items-center bg-[#181818]">
         <h1 className="text-[#00FFAB] text-xl font-bold">Background Removal</h1>
         <div className="flex items-center space-x-4">
-          <Link href="/background-removal">
+          <Link href="/">
             <button className="bg-[#00FFAB] text-black px-4 py-2 rounded-lg hover:bg-[#00CC8B] transition duration-300">
-              Remove Background
+              Auto digitizing
             </button>
           </Link>
           <Link href="/signin/chatbot">
