@@ -1,11 +1,11 @@
 "use client";
-import Link from "next/link"; // For routing links
-import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { downloadDSB } from "./dsbUtils";
 
 export default function FinishPage() {
-  const [imageUrl, setImageUrl] = useState(null);
+  const [displayImageUrl, setDisplayImageUrl] = useState(null);
+  const [pixelatedImageUrl, setPixelatedImageUrl] = useState(null);
   const [progress, setProgress] = useState({
     stage: "",
     current: 0,
@@ -13,19 +13,14 @@ export default function FinishPage() {
     message: "",
   });
   const [error, setError] = useState(null);
-  const searchParams = useSearchParams();
-  const [cleanedImageUrl, setCleanedImageUrl] = useState(null);
 
   useEffect(() => {
     const loadStreamSaver = async () => {
       try {
-        // Add StreamSaver script to the document
         const script = document.createElement("script");
-        script.src =
-          "https://cdn.jsdelivr.net/npm/streamsaver@latest/StreamSaver.min.js";
+        script.src = "https://cdn.jsdelivr.net/npm/streamsaver@latest/StreamSaver.min.js";
         script.async = true;
         document.body.appendChild(script);
-
         return new Promise((resolve) => {
           script.onload = () => resolve();
         });
@@ -34,18 +29,15 @@ export default function FinishPage() {
         setError("Failed to load required dependencies");
       }
     };
-
     loadStreamSaver();
   }, []);
 
   useEffect(() => {
     try {
-      // Retrieve data from localStorage
       const imageData = JSON.parse(localStorage.getItem("imageData"));
       if (imageData) {
-        setImageUrl(imageData.imageUrl);
-        setCleanedImageUrl(imageData.imageUrl);
-        // Set other necessary state variables if needed
+        setDisplayImageUrl(imageData.displayImageUrl);
+        setPixelatedImageUrl(imageData.pixelatedImageUrl);
       }
     } catch (error) {
       console.error("Error retrieving image data:", error);
@@ -54,11 +46,10 @@ export default function FinishPage() {
   }, []);
 
   const handleDownloadDSB = async () => {
-    if (!imageUrl) {
+    if (!pixelatedImageUrl) {
       setError("No image URL provided");
       return;
     }
-
     try {
       setError(null);
       setProgress({
@@ -67,27 +58,18 @@ export default function FinishPage() {
         total: 100,
         message: "Loading image...",
       });
-
-      // Retrieve data from localStorage
       const imageData = JSON.parse(localStorage.getItem("imageData"));
       if (!imageData) {
         throw new Error("No image data found in storage");
       }
-
-      // Pass the data to downloadDSB
-      await downloadDSB(
-        imageData.imageUrl,
-        (stage, current, total, message) => {
-          setProgress({
-            stage,
-            current,
-            total,
-            message:
-              message || `${stage} (${Math.round((current / total) * 100)}%)`,
-          });
-        }
-      );
-
+      await downloadDSB(imageData.pixelatedImageUrl, (stage, current, total, message) => {
+        setProgress({
+          stage,
+          current,
+          total,
+          message: message || `${stage} (${Math.round((current / total) * 100)}%)`,
+        });
+      });
       setProgress({
         stage: "Complete",
         current: 100,
@@ -103,7 +85,6 @@ export default function FinishPage() {
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Navigation Bar */}
       <nav className="w-full bg-gray-800 py-4 px-8 flex justify-between items-center shadow-md">
         <h1 className="text-xl font-bold text-white">Auto Digitizing</h1>
         <Link href="/">
@@ -112,36 +93,42 @@ export default function FinishPage() {
           </button>
         </Link>
       </nav>
-
-      {/* Main Content */}
       <div className="flex flex-col items-center justify-center p-6">
         <div className="bg-black shadow-lg rounded-lg p-8 mt-10 max-w-md w-full">
-          <h2 className="text-2xl font-bold mb-6 text-center">
+          <h2 className="text-2xl font-bold mb-6 text-center text-white">
             Processing Complete!
           </h2>
-
-          {cleanedImageUrl && (
-            <div className="mb-6">
+          {displayImageUrl && (
+            <div className="mb-6 flex items-center justify-center">
               <img
-                src={cleanedImageUrl}
+                src={displayImageUrl}
                 crossOrigin="anonymous"
                 alt="Processed"
-                className="w-full h-auto rounded"
+                className="max-w-full max-h-full rounded-lg shadow-lg border border-gray-700"
                 onError={(e) => {
-                  console.error("Failed to load image:", cleanedImageUrl);
+                  console.error("Failed to load image:", displayImageUrl);
                   e.target.style.display = "none";
                   setError("Failed to load image");
                 }}
               />
             </div>
           )}
-
           <button
             onClick={handleDownloadDSB}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
           >
             Download as .dsb File
           </button>
+          {progress.stage && (
+            <div className="mt-4 text-center text-white">
+              <p>{progress.message}</p>
+            </div>
+          )}
+          {error && (
+            <div className="mt-4 text-center text-red-500">
+              <p>{error}</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

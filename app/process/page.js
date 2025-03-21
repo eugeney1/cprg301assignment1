@@ -254,7 +254,7 @@ export default function ProcessingPage() {
 
   // Updated handleConvert to use stored stitch count
   const handleConvert = async () => {
-    if (!pixelatedDataUrl) {
+    if (!pixelatedDataUrl || !currentDisplayedImage) {
       alert("Please generate a preview first.");
       return;
     }
@@ -262,7 +262,8 @@ export default function ProcessingPage() {
     localStorage.setItem(
       "imageData",
       JSON.stringify({
-        imageUrl: pixelatedDataUrl, // Use small image
+        displayImageUrl: currentDisplayedImage, // Upscaled image for display
+        pixelatedImageUrl: pixelatedDataUrl, // Small image for DSB
         colors: colors,
         stitchCount: stitchCount,
         plusX: dimensions.plusX,

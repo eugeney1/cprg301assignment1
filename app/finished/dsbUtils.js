@@ -1,5 +1,4 @@
 // dsbUtils.js
-import quantize from "quantize";
 // Utility commands for DSB file creation
 export const DSB_COMMANDS = {
   STITCH: 0x80, // 10000000
@@ -178,7 +177,7 @@ export class DSBWriter {
  */
 export function generatePixel() {
   const stitches = [];
-  const pixel_length = 9;
+  const pixel_length = 12;
 
   // Starting stitch
   stitches.push({
@@ -413,10 +412,7 @@ export async function downloadDSB(imageUrl, onProgress = null) {
   try {
     console.log("Starting DSB conversion process");
     console.time("Total conversion time");
-
-    // Retrieve additional data from localStorage
     const imageData = JSON.parse(localStorage.getItem("imageData"));
-    const colorCount = imageData.colors || 7;
 
     // Load the pixelated image directly
     const img = new Image();
@@ -431,54 +427,52 @@ export async function downloadDSB(imageUrl, onProgress = null) {
     canvas.height = img.height;
     const ctx = canvas.getContext("2d");
     ctx.drawImage(img, 0, 0);
-    const imageDataObj = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-    console.log(
-      "Processing pixelated image:",
-      imageDataObj.width,
-      "x",
-      imageDataObj.height
-    );
-
-    // Extract pixels from the pixelated image
-    const pixels = [];
-    for (let i = 0; i < imageDataObj.data.length; i += 4) {
-      pixels.push([
-        imageDataObj.data[i], // R
-        imageDataObj.data[i + 1], // G
-        imageDataObj.data[i + 2], // B
-      ]);
-    }
-
-    // Quantize the image to the selected number of colors
-    const colorMap = quantize(pixels, colorCount);
-    const palette = colorMap.palette();
+    const ImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
     // Create regions based on the quantized colors
-    const regions = Array.from({ length: colorCount }, () => {
-      const region = new Array(imageDataObj.height);
-      for (let y = 0; y < imageDataObj.height; y++) {
-        region[y] = new Uint8Array(imageDataObj.width);
+    const regions = Array.from({ length: imageData.colors }, () => {
+      const region = new Array(ImageData.height);
+      for (let y = 0; y < ImageData.height; y++) {
+        region[y] = new Uint8Array(ImageData.width);
       }
       return region;
     });
 
-    // Fill regions with pixel data
-    // Fill regions with pixel data
-    for (let y = 0; y < imageDataObj.height; y++) {
-      for (let x = 0; x < imageDataObj.width; x++) {
-        const idx = (y * imageDataObj.width + x) * 4;
-        const r = imageDataObj.data[idx];
-        const g = imageDataObj.data[idx + 1];
-        const b = imageDataObj.data[idx + 2];
+    // Extract unique colors from imageData.data
+    const uniqueColors = new Set();
+    for (let i = 0; i < ImageData.data.length; i += 4) {
+      const r = ImageData.data[i];
+      const g = ImageData.data[i + 1];
+      const b = ImageData.data[i + 2];
+      const colorKey = `${r},${g},${b}`;
+      uniqueColors.add(colorKey);
+    }
 
-        const color = colorMap.map([r, g, b]);
+    // Build the palette
+    const palette = Array.from(uniqueColors).map((colorKey) => {
+      const [r, g, b] = colorKey.split(",").map(Number);
+      return [r, g, b];
+    });
+
+    // Fill regions with pixel data
+    for (let y = 0; y < ImageData.height; y++) {
+      for (let x = 0; x < ImageData.width; x++) {
+        const idx = (y * ImageData.width + x) * 4;
+        const r = ImageData.data[idx];
+        const g = ImageData.data[idx + 1];
+        const b = ImageData.data[idx + 2];
+
+        // Directly find the index of the pixel’s color in the palette
         const colorIndex = palette.findIndex(
-          (c) => c[0] === color[0] && c[1] === color[1] && c[2] === color[2]
+          (c) => c[0] === r && c[1] === g && c[2] === b
         );
 
         if (colorIndex >= 0) {
           regions[colorIndex][y][x] = 1;
+        } else {
+          console.warn(
+            `Color RGB(${r},${g},${b}) not found in palette at (${x},${y})`
+          );
         }
       }
     }
@@ -491,7 +485,7 @@ export async function downloadDSB(imageUrl, onProgress = null) {
     // Set up DSB header info from stored data
     const dsbHeaderInfo = {
       stitchCount: imageData.stitchCount,
-      colorChanges: colorCount,
+      colorChanges: imageData.colors,
       plusX: imageData.plusX,
       plusY: imageData.plusY,
       minusX: imageData.minusX,
