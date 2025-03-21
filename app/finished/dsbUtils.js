@@ -13,7 +13,7 @@ export const DSB_COMMANDS = {
   END: 0xf8, // 11111000
 };
 
-export const STITCH_HEIGHT_OFFSET = 3; // vertical offset between stitches
+export const STITCH_HEIGHT_OFFSET = 4; // vertical offset between stitches
 export const MAX_JUMP = 255;
 
 export class DSBWriter {
@@ -131,6 +131,9 @@ export class DSBWriter {
     }
 
     header.fill(0x20, offset, 512);
+
+    //not sure what these are for, just found them in "real" dsb files.
+    header.set([0x00, 0x00, 0x00, 0x00], 499);
     return header;
   }
 
@@ -221,7 +224,7 @@ export function generatePixel() {
   // Move to the right for the next pixel
   stitches.push({
     command: DSB_COMMANDS.JUMP,
-    y: 3,
+    y: 0,
     x: pixel_length,
   });
 
@@ -328,7 +331,7 @@ async function floodFill(imageData, onProgress = null) {
 // In dsbUtils.js
 
 async function processRegionStream(dsb, region, onProgress) {
-  const pixel_length = 9;
+  const pixel_length = 12;
   const positions = [];
 
   // Step 1: Collect all positions where region[j][i] === 1
