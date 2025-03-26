@@ -15,6 +15,7 @@ export const DSB_COMMANDS = {
 
 export const STITCH_HEIGHT_OFFSET = 4; // vertical offset between stitches
 export const MAX_JUMP = 61;
+export const STITCH_LENGTH = 12;
 
 export class DSBWriter {
   constructor() {
@@ -221,11 +222,10 @@ export function generatePixel() {
     x: pixel_length,
   });
 
-  // Move to the right for the next pixel
   stitches.push({
-    command: DSB_COMMANDS.JUMP,
-    y: 0,
-    x: pixel_length,
+    command: DSB_COMMANDS.STITCH,
+    y: pixel_length,
+    x: 0,
   });
 
   return stitches;
@@ -355,7 +355,6 @@ async function processRegionStream(dsb, region, onProgress) {
     const targetX = i * pixel_length;
     const targetY = j * pixel_length;
 
-    // Jump to the starting position of the pixel
     await dsb.addJumpTo(targetX, targetY);
 
     // Add stitch commands for the pixel

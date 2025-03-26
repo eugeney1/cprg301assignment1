@@ -46,7 +46,7 @@ public class StitchVisualizer extends JPanel {
     private DrawingPanel drawingPanel;
 
     public StitchVisualizer() {
-        loadStitchData("smaller16v2.dsb", new int[] { 5, 4, 3, 6, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        loadStitchData("sunrise6.dsb", new int[] { 5, 4, 3, 6, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
 
         // Build actions for animation
         for (Polyline polyline : polylines) {
