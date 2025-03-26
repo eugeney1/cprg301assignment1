@@ -14,7 +14,7 @@ export const DSB_COMMANDS = {
 };
 
 export const STITCH_HEIGHT_OFFSET = 4; // vertical offset between stitches
-export const MAX_JUMP = 255;
+export const MAX_JUMP = 61;
 
 export class DSBWriter {
   constructor() {
@@ -115,14 +115,14 @@ export class DSBWriter {
     const symmetricY = Math.max(this.maxY, Math.abs(this.minY));
 
     const headerInfo = [
-      `ST:      ${this.stitchCount}`,
+      `ST:  ${this.stitchCount}`,
       `CO:  ${this.colorChanges}`,
-      `+X:    ${symmetricX}`, // Use largest X value
-      `-X:    ${symmetricX}`, // Mirror +X
-      `+Y:    ${symmetricY}`, // Use largest Y value
-      `-Y:    ${symmetricY}`, // Mirror +Y
-      `AX:+    ${this.currentX}`,
-      `AY:+    ${this.currentY}`,
+      `+X:  ${symmetricX}`, // Use largest X value
+      `-X:  ${symmetricX}`, // Mirror +X
+      `+Y:  ${symmetricY}`, // Use largest Y value
+      `-Y:  ${symmetricY}`, // Mirror +Y
+      `AX:+  ${this.currentX}`,
+      `AY:+  ${this.currentY}`,
     ];
 
     for (const line of headerInfo) {
@@ -145,8 +145,8 @@ export class DSBWriter {
     while (currentX !== targetX || currentY !== targetY) {
       let dx = targetX - currentX;
       let dy = targetY - currentY;
-      let jumpX = Math.min(Math.abs(dx), 255);
-      let jumpY = Math.min(Math.abs(dy), 255);
+      let jumpX = Math.min(Math.abs(dx), MAX_JUMP);
+      let jumpY = Math.min(Math.abs(dy), MAX_JUMP);
       if (dx < 0) jumpX = -jumpX;
       if (dy < 0) jumpY = -jumpY;
       const command = this.getJumpCommand(jumpX, jumpY);

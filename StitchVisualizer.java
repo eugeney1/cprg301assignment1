@@ -46,7 +46,7 @@ public class StitchVisualizer extends JPanel {
     private DrawingPanel drawingPanel;
 
     public StitchVisualizer() {
-        loadStitchData("smaller10.dsb", new int[] { 5, 4, 3, 6, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        loadStitchData("smaller16v2.dsb", new int[] { 5, 4, 3, 6, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
 
         // Build actions for animation
         for (Polyline polyline : polylines) {
@@ -263,15 +263,34 @@ public class StitchVisualizer extends JPanel {
                 int command = buffer[0] & 0xFF;
                 int dy = buffer[1] & 0xFF;
                 int dx = buffer[2] & 0xFF;
+
+                // Adjust signs based on command bits
                 if ((command & 0x20) != 0)
-                    dx = -dx;
+                    dx = -dx; // Bit 5 sets X sign
                 if ((command & 0x40) != 0)
-                    dy = -dy;
+                    dy = -dy; // Bit 6 sets Y sign
+
+                // Calculate new position
                 int nextX = currentX + dx;
                 int nextY = currentY + dy;
+
+                // Determine command type
                 boolean isColorChange = (command & 0x08) != 0;
                 boolean isJump = (command & 0x01) != 0;
+                String type;
+                if (isColorChange) {
+                    type = "Color Change";
+                } else if (isJump) {
+                    type = "Jump";
+                } else {
+                    type = "Stitch";
+                }
 
+                // Print command details with signed X and Y values
+                System.out.printf("Type: %s, DX: %d, DY: %d, Position: (%d, %d)\n",
+                        type, dx, dy, nextX, nextY);
+
+                // Handle polyline updates
                 if (isColorChange) {
                     if (currentPolyline.size() > 1) {
                         polylines.add(new Polyline(currentPolyline, currentColor));
@@ -289,9 +308,13 @@ public class StitchVisualizer extends JPanel {
                 } else {
                     currentPolyline.add(new double[] { nextX, -nextY });
                 }
+
+                // Update current position
                 currentX = nextX;
                 currentY = nextY;
             }
+
+            // Add the final polyline if it has data
             if (currentPolyline.size() > 1) {
                 polylines.add(new Polyline(currentPolyline, currentColor));
             }
