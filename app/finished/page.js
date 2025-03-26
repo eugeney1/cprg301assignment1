@@ -1,5 +1,7 @@
 "use client";
 import Link from "next/link";
+
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { downloadDSB } from "./dsbUtils";
 
@@ -14,6 +16,7 @@ export default function FinishPage() {
   });
   const [error, setError] = useState(null);
 
+  // Load StreamSaver dependency
   useEffect(() => {
     const loadStreamSaver = async () => {
       try {
@@ -32,6 +35,7 @@ export default function FinishPage() {
     loadStreamSaver();
   }, []);
 
+  // Retrieve image data from localStorage on component mount
   useEffect(() => {
     try {
       const imageData = JSON.parse(localStorage.getItem("imageData"));
@@ -45,6 +49,31 @@ export default function FinishPage() {
     }
   }, []);
 
+  // Save photo details to the database when cleanedImageUrl is set
+  useEffect(() => {
+    async function savePhoto() {
+      try {
+        // Derive a filename from the URL (using the last segment)
+        const parts = cleanedImageUrl.split("/");
+        const filename = parts[parts.length - 1];
+        const response = await fetch("/api/photos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename, filepath: cleanedImageUrl }),
+        });
+        if (!response.ok) {
+          throw new Error("Failed to save photo");
+        }
+      } catch (error) {
+        console.error("Error saving photo:", error);
+      }
+    }
+    if (cleanedImageUrl) {
+      savePhoto();
+    }
+  }, [cleanedImageUrl]);
+
+  // Handle downloading the image as a .dsb file
   const handleDownloadDSB = async () => {
     if (!pixelatedImageUrl) {
       setError("No image URL provided");
@@ -62,6 +91,7 @@ export default function FinishPage() {
       if (!imageData) {
         throw new Error("No image data found in storage");
       }
+
       await downloadDSB(imageData.pixelatedImageUrl, (stage, current, total, message) => {
         setProgress({
           stage,
@@ -83,6 +113,7 @@ export default function FinishPage() {
     }
   };
 
+
   return (
     <div className="min-h-screen bg-black">
       <nav className="w-full bg-gray-800 py-4 px-8 flex justify-between items-center shadow-md">
@@ -90,6 +121,11 @@ export default function FinishPage() {
         <Link href="/">
           <button className="bg-green-500 hover:bg-green-600 text-black px-4 py-2 rounded transition">
             Return to Main Page
+          </button>
+        </Link>
+        <Link href="/gallery">
+          <button className="bg-green-500 hover:bg-green-600 text-black px-4 py-2 rounded transition">
+            Gallery
           </button>
         </Link>
       </nav>
@@ -118,7 +154,7 @@ export default function FinishPage() {
             className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
           >
             Download as .dsb File
-          </button>
+
           {progress.stage && (
             <div className="mt-4 text-center text-white">
               <p>{progress.message}</p>
@@ -127,6 +163,7 @@ export default function FinishPage() {
           {error && (
             <div className="mt-4 text-center text-red-500">
               <p>{error}</p>
+
             </div>
           )}
         </div>
