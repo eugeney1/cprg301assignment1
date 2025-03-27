@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@chakra-ui/react": "^3.5.1",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@tensorflow-models/body-pix": "^2.2.1",
@@ -27,7 +29,7 @@
     "mysql2": "^3.13.0",
     "next": "^15.1.6",
     "quantize": "^1.0.2",
-    "react": "19.0.0-rc-66855b96-20241106",
+    "react": "^19.0.0",
     "react-color": "^2.19.3",
     "react-dom": "19.0.0-rc-66855b96-20241106",
     "react-icons": "^5.4.0",
