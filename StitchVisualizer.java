@@ -31,7 +31,7 @@ public class StitchVisualizer extends JPanel {
     private static final int WINDOW_WIDTH = 800;
     private static final int WINDOW_HEIGHT = 600;
     private static final double ZOOM_FACTOR = 1.1;
-    private static final int ANIMATION_DELAY = 100; // milliseconds
+    private static final int ANIMATION_DELAY = 1; // milliseconds
 
     private List<Polyline> polylines = new ArrayList<>();
     private List<StitchAction> actions = new ArrayList<>();
@@ -45,8 +45,21 @@ public class StitchVisualizer extends JPanel {
     };
     private DrawingPanel drawingPanel;
 
+    private void skipToNextColor() {
+        for (int i = currentActionIndex + 1; i < actions.size(); i++) {
+            if (actions.get(i).type == StitchAction.Type.JUMP) {
+                currentActionIndex = i;
+                repaint();
+                return;
+            }
+        }
+        // If no more JUMP actions are found, go to the end
+        currentActionIndex = actions.size() - 1;
+        repaint();
+    }
+
     public StitchVisualizer() {
-        loadStitchData("sunrise6.dsb", new int[] { 5, 4, 3, 6, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        loadStitchData("mona-lisa11.dsb", new int[] { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 2, 3, 4 });
 
         // Build actions for animation
         for (Polyline polyline : polylines) {
@@ -114,9 +127,18 @@ public class StitchVisualizer extends JPanel {
             }
         });
 
+        JButton skipButton = new JButton("Skip to Next Color");
+        skipButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                skipToNextColor();
+            }
+        });
+
         buttonPanel.add(startButton);
         buttonPanel.add(fastForwardButton);
         buttonPanel.add(colorButton);
+        buttonPanel.add(skipButton);
         add(buttonPanel, BorderLayout.SOUTH);
 
         // Set up key bindings on the main panel
