@@ -141,22 +141,58 @@ export class DSBWriter {
   // Grok 3 generated.
 
   async addJumpTo(targetX, targetY) {
-    let currentX = this.currentX;
-    let currentY = this.currentY;
+    const MAX_JUMP = 63; // Maximum jump distance in units
+    let currentX = this.currentX; // Current X position
+    let currentY = this.currentY; // Current Y position
+    let startedJump = false;
+
     while (currentX !== targetX || currentY !== targetY) {
+      // Calculate displacements
       let dx = targetX - currentX;
       let dy = targetY - currentY;
-      let jumpX = Math.min(Math.abs(dx), MAX_JUMP);
-      let jumpY = Math.min(Math.abs(dy), MAX_JUMP);
-      if (dx < 0) jumpX = -jumpX;
-      if (dy < 0) jumpY = -jumpY;
-      const command = this.getJumpCommand(jumpX, jumpY);
-      const absJumpX = Math.abs(jumpX);
-      const absJumpY = Math.abs(jumpY);
-      await this.addStitch(command, absJumpY, absJumpX);
-      currentX += jumpX;
-      currentY += jumpY;
+      let absDx = Math.abs(dx);
+      let absDy = Math.abs(dy);
+
+      // Check if the movement is within MAX_JUMP for both axes
+      if (absDx <= MAX_JUMP && absDy <= MAX_JUMP && !startedJump) {
+        // Use a stitch for small movements
+        const command = this.getStitchCommand(dx, dy);
+        await this.addStitch(command, absDy, absDx);
+        currentX = targetX; // Update position
+        currentY = targetY;
+      } else {
+        startedJump = true;
+        // Use a jump for large movements
+        let jumpX = Math.min(absDx, MAX_JUMP);
+        let jumpY = Math.min(absDy, MAX_JUMP);
+        if (dx < 0) jumpX = -jumpX; // Adjust direction
+        if (dy < 0) jumpY = -jumpY;
+        const command = this.getJumpCommand(jumpX, jumpY);
+        const absJumpX = Math.abs(jumpX);
+        const absJumpY = Math.abs(jumpY);
+        await this.addStitch(command, absJumpY, absJumpX); // Add jump command
+        currentX += jumpX; // Update position incrementally
+        currentY += jumpY;
+      }
     }
+
+    // Update the object's current position
+    this.currentX = targetX;
+    this.currentY = targetY;
+  }
+
+  // Helper method to determine the stitch command based on direction
+  getStitchCommand(dx, dy) {
+    const DSB_COMMANDS = {
+      STITCH: 0x80, // +X, +Y
+      STITCH_NEG_X: 0xa0, // -X, +Y
+      STITCH_NEG_Y: 0xc0, // +X, -Y
+      STITCH_NEG_BOTH: 0xe0, // -X, -Y
+    };
+    if (dx >= 0 && dy >= 0) return DSB_COMMANDS.STITCH;
+    if (dx < 0 && dy >= 0) return DSB_COMMANDS.STITCH_NEG_X;
+    if (dx >= 0 && dy < 0) return DSB_COMMANDS.STITCH_NEG_Y;
+    if (dx < 0 && dy < 0) return DSB_COMMANDS.STITCH_NEG_BOTH;
   }
 
   getJumpCommand(dx, dy) {
@@ -179,7 +215,7 @@ export class DSBWriter {
  * Generates stitch commands for a single pixel.
  * Returns an array of stitch objects.
  */
-export function generatePixel() {
+export function generatePixel(direction) {
   const stitches = [];
   const pixel_length = 12;
 
@@ -190,43 +226,78 @@ export function generatePixel() {
     x: 0,
   });
 
-  // Create the pixel with three pairs of diagonal stitches
-  for (let i = 0; i < 3; i++) {
+  // Create the pixel with a v patern
+
+  if (direction == "right") {
     stitches.push({
       command: DSB_COMMANDS.STITCH_NEG_Y,
-      y: pixel_length,
-      x: STITCH_HEIGHT_OFFSET,
+      y: STITCH_LENGTH,
+      x: STITCH_LENGTH / 2,
+    });
+    stitches.push({
+      command: DSB_COMMANDS.STITCH,
+      y: STITCH_LENGTH,
+      x: STITCH_LENGTH / 2,
+    });
+    stitches.push({
+      command: DSB_COMMANDS.STITCH_NEG_Y,
+      y: STITCH_LENGTH,
+      x: 0,
+    });
+
+    stitches.push({
+      command: DSB_COMMANDS.STITCH_NEG_X,
+      y: 0,
+      x: STITCH_LENGTH,
+    });
+
+    stitches.push({
+      command: DSB_COMMANDS.STITCH,
+      y: STITCH_LENGTH,
+      x: 0,
+    });
+
+    stitches.push({
+      command: DSB_COMMANDS.STITCH,
+      y: 0,
+      x: STITCH_LENGTH,
+    });
+  } else {
+    // left
+    stitches.push({
+      command: DSB_COMMANDS.STITCH_NEG_BOTH,
+      y: STITCH_LENGTH,
+      x: STITCH_LENGTH / 2,
     });
     stitches.push({
       command: DSB_COMMANDS.STITCH_NEG_X,
-      y: pixel_length,
+      y: STITCH_LENGTH,
+      x: STITCH_LENGTH / 2,
+    });
+    stitches.push({
+      command: DSB_COMMANDS.STITCH_NEG_Y,
+      y: STITCH_LENGTH,
       x: 0,
     });
+
+    stitches.push({
+      command: DSB_COMMANDS.STITCH,
+      y: 0,
+      x: STITCH_LENGTH,
+    });
+
+    stitches.push({
+      command: DSB_COMMANDS.STITCH,
+      y: STITCH_LENGTH,
+      x: 0,
+    });
+
+    stitches.push({
+      command: DSB_COMMANDS.STITCH_NEG_X,
+      y: 0,
+      x: STITCH_LENGTH,
+    });
   }
-
-  stitches.push({
-    command: DSB_COMMANDS.STITCH_NEG_X,
-    y: 0,
-    x: pixel_length,
-  });
-
-  stitches.push({
-    command: DSB_COMMANDS.STITCH_NEG_Y,
-    y: pixel_length,
-    x: 0,
-  });
-
-  stitches.push({
-    command: DSB_COMMANDS.STITCH_NEG_Y,
-    y: 0,
-    x: pixel_length,
-  });
-
-  stitches.push({
-    command: DSB_COMMANDS.STITCH,
-    y: pixel_length,
-    x: 0,
-  });
 
   return stitches;
 }
@@ -334,7 +405,7 @@ async function processRegionStream(dsb, region, onProgress) {
   const pixel_length = 12;
   const positions = [];
 
-  // Step 1: Collect all positions where region[j][i] === 1
+  // Collect positions where region[j][i] === 1
   for (let j = 0; j < region.length; j++) {
     for (let i = 0; i < region[j].length; i++) {
       if (region[j][i] === 1) {
@@ -343,29 +414,44 @@ async function processRegionStream(dsb, region, onProgress) {
     }
   }
 
-  // Step 2: Sort positions by row (j) then column (i)
-  positions.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  // Group by row
+  const rows = {};
+  for (const [i, j] of positions) {
+    if (!rows[j]) rows[j] = [];
+    rows[j].push(i);
+  }
 
-  // Step 3: Process each position
+  // Sort rows by j
+  const sortedRows = Object.entries(rows).sort((a, b) => a[0] - b[0]);
+
   let processed = 0;
+  let direction;
   const totalPositions = positions.length;
 
-  for (const [i, j] of positions) {
-    // Calculate target absolute position
-    const targetX = i * pixel_length;
-    const targetY = j * pixel_length;
+  for (const [j, rowPositions] of sortedRows) {
+    const rowJ = parseInt(j);
+    // Even rows: left to right; Odd rows: right to left
+    rowPositions.sort((a, b) => (rowJ % 2 === 0 ? a - b : b - a));
 
-    await dsb.addJumpTo(targetX, targetY);
+    for (const i of rowPositions) {
+      const targetX = i * pixel_length;
+      const targetY = rowJ * pixel_length;
 
-    // Add stitch commands for the pixel
-    const pixelStitches = generatePixel();
-    for (const stitch of pixelStitches) {
-      await dsb.addStitch(stitch.command, stitch.y, stitch.x);
-    }
+      // Jump only if current position differs (handled by addJumpTo)
+      await dsb.addJumpTo(targetX, targetY);
 
-    processed++;
-    if (onProgress) {
-      onProgress(processed, totalPositions);
+      // Stitch the pixel
+      if (rowJ % 2 == 0) direction = "right";
+      else direction = "left";
+      const pixelStitches = generatePixel(direction);
+      for (const stitch of pixelStitches) {
+        await dsb.addStitch(stitch.command, stitch.y, stitch.x);
+      }
+
+      processed++;
+      if (onProgress) {
+        onProgress(processed, totalPositions);
+      }
     }
   }
 }
@@ -405,18 +491,22 @@ async function getPixelatedImageData(url) {
 }
 
 /**
- * Downloads a DSB file from an image URL.
- * For demonstration, this function creates a DSB file containing
- * the stitch data for a single pixel. In a complete solution,
- * you would use full image-to-stitch conversion logic.
+ * Downloads a DSB file from an image URL, excluding specified color indices.
+ * @param {string} imageUrl - URL of the pixelated image
+ * @param {number[]} [excludedIndices=[]] - Array of color indices to exclude
+ * @param {function} [onProgress=null] - Progress callback
  */
-export async function downloadDSB(imageUrl, onProgress = null) {
+export async function downloadDSB(
+  imageUrl,
+  excludedIndices = [],
+  paletteOrder = [], // New parameter
+  onProgress = null
+) {
   try {
     console.log("Starting DSB conversion process");
     console.time("Total conversion time");
     const imageData = JSON.parse(localStorage.getItem("imageData"));
 
-    // Load the pixelated image directly
     const img = new Image();
     img.src = imageUrl;
     await new Promise((resolve, reject) => {
@@ -431,7 +521,6 @@ export async function downloadDSB(imageUrl, onProgress = null) {
     ctx.drawImage(img, 0, 0);
     const ImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-    // Create regions based on the quantized colors
     const regions = Array.from({ length: imageData.colors }, () => {
       const region = new Array(ImageData.height);
       for (let y = 0; y < ImageData.height; y++) {
@@ -440,51 +529,35 @@ export async function downloadDSB(imageUrl, onProgress = null) {
       return region;
     });
 
-    // Extract unique colors from imageData.data
     const uniqueColors = new Set();
     for (let i = 0; i < ImageData.data.length; i += 4) {
-      const r = ImageData.data[i];
-      const g = ImageData.data[i + 1];
-      const b = ImageData.data[i + 2];
-      const colorKey = `${r},${g},${b}`;
+      const colorKey = `${ImageData.data[i]},${ImageData.data[i + 1]},${
+        ImageData.data[i + 2]
+      }`;
       uniqueColors.add(colorKey);
     }
 
-    // Build the palette
-    const palette = Array.from(uniqueColors).map((colorKey) => {
-      const [r, g, b] = colorKey.split(",").map(Number);
-      return [r, g, b];
-    });
+    const palette = Array.from(uniqueColors).map((colorKey) =>
+      colorKey.split(",").map(Number)
+    );
 
-    // Fill regions with pixel data
     for (let y = 0; y < ImageData.height; y++) {
       for (let x = 0; x < ImageData.width; x++) {
         const idx = (y * ImageData.width + x) * 4;
         const r = ImageData.data[idx];
         const g = ImageData.data[idx + 1];
         const b = ImageData.data[idx + 2];
-
-        // Directly find the index of the pixel’s color in the palette
         const colorIndex = palette.findIndex(
           (c) => c[0] === r && c[1] === g && c[2] === b
         );
-
-        if (colorIndex >= 0) {
-          regions[colorIndex][y][x] = 1;
-        } else {
-          console.warn(
-            `Color RGB(${r},${g},${b}) not found in palette at (${x},${y})`
-          );
-        }
+        if (colorIndex >= 0) regions[colorIndex][y][x] = 1;
       }
     }
 
-    // Reverse the rows in each region to flip the image vertically
     for (let i = 0; i < regions.length; i++) {
       regions[i] = regions[i].reverse();
     }
 
-    // Set up DSB header info from stored data
     const dsbHeaderInfo = {
       stitchCount: imageData.stitchCount,
       colorChanges: imageData.colors,
@@ -506,9 +579,19 @@ export async function downloadDSB(imageUrl, onProgress = null) {
 
     await dsb.initializeStream();
 
-    // Process each region
+    // Use paletteOrder if provided, otherwise default to original order
+    const processingOrder =
+      paletteOrder.length > 0 ? paletteOrder : palette.map((_, i) => i);
+
     console.time("Region processing");
-    for (let i = 0; i < regions.length; i++) {
+    for (const i of processingOrder) {
+      if (excludedIndices.includes(i)) {
+        console.log(
+          `Skipping region ${i} (color ${palette[i]}) as it is excluded`
+        );
+        continue;
+      }
+
       const regionColor = palette[i];
       console.log(`Region ${i + 1} color:`, regionColor);
 
@@ -527,9 +610,11 @@ export async function downloadDSB(imageUrl, onProgress = null) {
         if (onProgress) {
           onProgress(
             "Converting",
-            i + current / total,
+            processingOrder.indexOf(i) + current / total,
             regions.length,
-            `Processing region ${i + 1} of ${regions.length}`
+            `Processing region ${processingOrder.indexOf(i) + 1} of ${
+              regions.length
+            }`
           );
         }
       });
