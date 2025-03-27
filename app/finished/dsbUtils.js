@@ -402,7 +402,6 @@ async function floodFill(imageData, onProgress = null) {
 // In dsbUtils.js
 
 async function processRegionStream(dsb, region, onProgress) {
-  const pixel_length = 12;
   const positions = [];
 
   // Collect positions where region[j][i] === 1
@@ -434,11 +433,12 @@ async function processRegionStream(dsb, region, onProgress) {
     rowPositions.sort((a, b) => (rowJ % 2 === 0 ? a - b : b - a));
 
     for (const i of rowPositions) {
-      const targetX = i * pixel_length;
-      const targetY = rowJ * pixel_length;
+      const targetX = i * STITCH_LENGTH;
+      const targetY = rowJ * STITCH_LENGTH;
 
       // Jump only if current position differs (handled by addJumpTo)
-      await dsb.addJumpTo(targetX, targetY);
+      if (rowJ % 2 == 0) await dsb.addJumpTo(targetX, targetY);
+      else await dsb.addJumpTo(targetX + STITCH_LENGTH, targetY);
 
       // Stitch the pixel
       if (rowJ % 2 == 0) direction = "right";

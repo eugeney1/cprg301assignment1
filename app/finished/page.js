@@ -14,7 +14,6 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
 
-import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { downloadDSB } from "./dsbUtils";
 
@@ -85,6 +84,34 @@ export default function FinishPage() {
       setError("Failed to load image data");
     }
   }, []);
+
+  /*
+  // Save photo details to the database when cleanedImageUrl is set
+  useEffect(() => {
+    async function savePhoto() {
+      try {
+        // Derive a filename from the URL (using the last segment)
+        const parts = cleanedImageUrl.split("/");
+        const filename = parts[parts.length - 1];
+        const response = await fetch("/api/photos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename, filepath: cleanedImageUrl }),
+        });
+        if (!response.ok) {
+          throw new Error("Failed to save photo");
+        }
+      } catch (error) {
+        console.error("Error saving photo:", error);
+      }
+    }
+    if (cleanedImageUrl) {
+      savePhoto();
+    }
+  }, [cleanedImageUrl]);
+  */
+
+  // Handle downloading the image as a .dsb file
 
   useEffect(() => {
     const loadPalette = async () => {
@@ -199,7 +226,6 @@ export default function FinishPage() {
     }
   };
 
-
   return (
     <div className="min-h-screen bg-black">
       <nav className="w-full bg-gray-800 py-4 px-8 flex justify-between items-center shadow-md">
@@ -267,9 +293,8 @@ export default function FinishPage() {
           <button
             onClick={handleDownloadDSB}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition mt-6"
-          >
-            Download as .dsb File
-
+          />
+          Download as .dsb File
           {progress.stage && (
             <div className="mt-4 text-center text-white">
               <p>{progress.message}</p>
@@ -278,7 +303,6 @@ export default function FinishPage() {
           {error && (
             <div className="mt-4 text-center text-red-500">
               <p>{error}</p>
-
             </div>
           )}
         </div>
