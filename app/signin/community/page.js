@@ -93,22 +93,22 @@ export default function CommunityGalleryPage() {
             <ul className="space-y-2">
               <li>
                 <a href="#" className="text-[#00FFAB] hover:underline">
-                  #Floral
+                 Cat
                 </a>
               </li>
               <li>
                 <a href="#" className="text-[#00FFAB] hover:underline">
-                  #Abstract
+                  Dog
                 </a>
               </li>
               <li>
                 <a href="#" className="text-[#00FFAB] hover:underline">
-                  #Modern
+                  Dominic
                 </a>
               </li>
               <li>
                 <a href="#" className="text-[#00FFAB] hover:underline">
-                  #Vintage
+                  Max
                 </a>
               </li>
             </ul>
