@@ -153,12 +153,29 @@ export default function FileUploadPage() {
             <Link href="/gallery" className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]">
               Gallery
             </Link>
-            <button
-              onClick={handleSignOut}
-              className="block w-full text-left px-4 py-2 text-sm text-[#FF3B3B] hover:bg-[#1E1E1E]"
-            >
-              Sign Out
-            </button>
+
+            {isDropdownOpen && (
+              <div className="absolute right-0 mt-12 w-48 bg-[#181818] rounded-lg shadow-lg">
+                <Link
+                  href="/signin/settings"
+                  className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]"
+                >
+                  Settings
+                </Link>
+                <Link 
+                  href="signin/gallery" 
+                  className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]"
+                >
+                  Gallery
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="block w-full text-left px-4 py-2 text-sm text-[#FF3B3B] hover:bg-[#1E1E1E]"
+                >
+                  Sign Out
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -1,227 +1,358 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { Heart, MessageSquare, Download } from "lucide-react";
 import "/app/globals.css";
-import {
-  ArrowUp,
-  ArrowDown,
-  MessageCircle,
-  PlusCircle,
-  LogIn,
-  Search,
-} from "lucide-react";
-import { useAuth } from "../_utils/auth-context";
 
-export default function CommunityPage() {
-  const { user, signOut } = useAuth();
-  const [posts, setPosts] = useState([
-    {
-      id: 1,
-      username: "UserOne",
-      avatar: "https://via.placeholder.com/40",
-      images: [
-        "https://via.placeholder.com/300",
-        "https://via.placeholder.com/300/0000FF/808080",
-      ],
-      comments: [
-        { id: 1, username: "UserTwo", text: "Nice gallery!" },
-        { id: 2, username: "UserThree", text: "Amazing photos!" },
-      ],
-      upvotes: 120,
-      downvotes: 10,
-    },
-    {
-      id: 2,
-      username: "UserFour",
-      avatar: "https://via.placeholder.com/40",
-      images: ["https://via.placeholder.com/300/FF0000/FFFFFF"],
-      comments: [],
-      upvotes: 85,
-      downvotes: 5,
-    },
-  ]);
+export default function CommunityGalleryPage() {
+  const [photos, setPhotos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [showCommentInput, setShowCommentInput] = useState(false);
+  const [commentInput, setCommentInput] = useState("");
 
-  const [commentText, setCommentText] = useState("");
+  useEffect(() => {
+    async function fetchPhotos() {
+      try {
+        const res = await fetch("/api/photos");
+        const data = await res.json();
+        // Enhance each photo with default properties for likes and comments.
+        const enhanced = data.map(photo => ({
+          ...photo,
+          liked: false,
+          likes: 0,
+          comments: [],
+        }));
+        setPhotos(enhanced);
+      } catch (error) {
+        console.error("Error fetching photos:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchPhotos();
+  }, []);
 
-  const handleCommentSubmit = (postId) => {
-    if (!user) return;
-    // Create a new comment using the logged-in user's details
-    const newComment = {
-      id: Date.now(),
-      username: user.displayName || user.email,
-      text: commentText,
-    };
-
-    setPosts((prevPosts) =>
-      prevPosts.map((post) =>
-        post.id === postId
-          ? { ...post, comments: [...post.comments, newComment] }
-          : post
-      )
-    );
-    setCommentText("");
-  };
-
-  const handleVote = (postId, type) => {
-    setPosts((prevPosts) =>
-      prevPosts.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              upvotes: type === "up" ? post.upvotes + 1 : post.upvotes,
-              downvotes: type === "down" ? post.downvotes + 1 : post.downvotes,
-            }
-          : post
-      )
+  // Toggle like status and update likes count.
+  const handleLike = (photoId) => {
+    setPhotos((prevPhotos) =>
+      prevPhotos.map((photo) => {
+        if (photo.id === photoId) {
+          const updated = {
+            ...photo,
+            liked: !photo.liked,
+            likes: photo.liked ? photo.likes - 1 : photo.likes + 1,
+          };
+          // If this photo is currently open in the modal, update it too.
+          if (selectedPhoto && selectedPhoto.id === photoId) {
+            setSelectedPhoto(updated);
+          }
+          return updated;
+        }
+        return photo;
+      })
     );
   };
 
-  const handleSignOut = () => {
-    if (signOut) {
-      signOut();
+  // Download image as PNG or convert to DSB via your endpoint.
+  const handleDownload = async (photo, extension) => {
+    try {
+      let blob;
+      if (extension === ".png") {
+        const response = await fetch(photo.filepath);
+        blob = await response.blob();
+      } else if (extension === ".dsb") {
+        const response = await fetch(`/api/convert-to-dsb?id=${photo.id}`);
+        if (!response.ok) {
+          throw new Error("Embroidery conversion failed.");
+        }
+        blob = await response.blob();
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const baseFilename = photo.filename.replace(/\.[^/.]+$/, "");
+      a.href = url;
+      a.download = baseFilename + extension;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading image:", error);
     }
   };
 
+  // Open and close modal.
+  const openModal = (photo) => {
+    setSelectedPhoto(photo);
+    setModalOpen(true);
+    setShowCommentInput(false);
+    setCommentInput("");
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setSelectedPhoto(null);
+    setShowCommentInput(false);
+    setCommentInput("");
+  };
+
+  // Format timestamp for display.
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return "";
+    const isoString = timestamp.replace(" ", "T") + "Z";
+    const dateObj = new Date(isoString);
+    return isNaN(dateObj.getTime()) ? timestamp : dateObj.toLocaleString();
+  };
+
+  // Submit a new comment for the selected photo.
+  const handleCommentSubmit = () => {
+    if (!commentInput.trim()) return;
+    const newComment = commentInput.trim();
+    const updatedPhoto = {
+      ...selectedPhoto,
+      comments: [...(selectedPhoto.comments || []), newComment],
+    };
+    // Update the selected photo.
+    setSelectedPhoto(updatedPhoto);
+    // Update the corresponding photo in the main photos array.
+    setPhotos((prevPhotos) =>
+      prevPhotos.map((photo) =>
+        photo.id === updatedPhoto.id ? updatedPhoto : photo
+      )
+    );
+    setCommentInput("");
+    setShowCommentInput(false);
+  };
+
   return (
-    <div className="bg-black text-white min-h-screen">
-      {/* Navbar */}
-      <div className="bg-green-900 p-4 flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Greenit</h1>
-        <div className="flex items-center space-x-4">
-          <Search className="w-6 h-6 text-green-400" />
-          {user ? (
-            <div className="flex items-center space-x-4">
-              <img
-                src={user.photoURL || "https://via.placeholder.com/40"}
-                alt="avatar"
-                className="w-8 h-8 rounded-full"
-              />
-              <span>{user.displayName || user.email}</span>
-              <button
-                onClick={handleSignOut}
-                className="bg-green-700 px-4 py-2 rounded-md flex items-center hover:bg-green-600 transition-colors"
-              >
-                Sign Out
-              </button>
-            </div>
-          ) : (
-            <button className="bg-green-700 px-4 py-2 rounded-md flex items-center hover:bg-green-600 transition-colors">
-              <LogIn className="w-5 h-5 mr-2" /> Log In
-            </button>
-          )}
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#121212] text-[#D1D1D1]">
+      {/* Header */}
+      <header className="bg-[#181818] py-4 px-6 flex justify-between items-center shadow">
+        <h1 className="text-3xl font-extrabold text-[#00FFAB]">Embroidery Hub</h1>
+        <nav>
+          <Link href="/signin" className="text-lg text-[#D1D1D1] hover:text-[#00FFAB]">
+            Home
+          </Link>
+        </nav>
+      </header>
 
-      {/* Main Layout */}
-      <div className="flex max-w-6xl mx-auto mt-6">
+      <div className="flex">
         {/* Sidebar */}
-        <div className="w-1/4 bg-green-900 p-4 rounded-md">
-          <h2 className="text-lg font-semibold mb-4 text-green-400">Trending Topics</h2>
-          <ul className="space-y-2">
-            <li className="hover:text-green-300 cursor-pointer">🏆 Popular</li>
-            <li className="hover:text-green-300 cursor-pointer">📈 Investing</li>
-            <li className="hover:text-green-300 cursor-pointer">📰 News</li>
-            <li className="hover:text-green-300 cursor-pointer">🎮 Gaming</li>
-            <li className="hover:text-green-300 cursor-pointer">📺 Entertainment</li>
-          </ul>
-        </div>
-
-        {/* Posts Section */}
-        <div className="w-3/4 px-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-green-400">Latest Posts</h2>
-            <button className="bg-green-700 px-4 py-2 rounded-md flex items-center hover:bg-green-600 transition-colors">
-              <PlusCircle className="w-5 h-5 mr-2" /> Create Post
-            </button>
+        <aside className="w-1/4 bg-[#181818] shadow p-6 border-r border-gray-700">
+          <div className="mb-6">
+            <h2 className="text-xl font-bold mb-3 text-[#00FFAB]">Trending Tags</h2>
+            <ul className="space-y-2">
+              <li>
+                <a href="#" className="text-[#00FFAB] hover:underline">
+                  Cat
+                </a>
+              </li>
+              <li>
+                <a href="#" className="text-[#00FFAB] hover:underline">
+                  Dog
+                </a>
+              </li>
+              <li>
+                <a href="#" className="text-[#00FFAB] hover:underline">
+                  Dominic
+                </a>
+              </li>
+              <li>
+                <a href="#" className="text-[#00FFAB] hover:underline">
+                  Max
+                </a>
+              </li>
+            </ul>
           </div>
-          {posts.map((post) => (
-            <div
-              key={post.id}
-              className="flex border border-green-800 rounded-lg shadow-md p-4 mb-6 bg-green-900"
-            >
-              {/* Voting Section */}
-              <div className="flex flex-col items-center p-2 bg-green-800 rounded-l-lg">
-                <button onClick={() => handleVote(post.id, "up")}>
-                  <ArrowUp className="w-6 h-6 text-green-300 hover:text-green-500 transition-colors" />
-                </button>
-                <span className="font-semibold text-green-300 text-lg">
-                  {post.upvotes - post.downvotes}
-                </span>
-                <button onClick={() => handleVote(post.id, "down")}>
-                  <ArrowDown className="w-6 h-6 text-green-300 hover:text-green-500 transition-colors" />
-                </button>
-              </div>
+          <div>
+            <h2 className="text-xl font-bold mb-3 text-[#00FFAB]">About Community</h2>
+            <p className="text-sm text-gray-400">
+              Welcome to Embroidery Hub, a community gallery to share and explore stunning embroidered works.
+              Get inspired by creative designs from fellow artists.
+            </p>
+          </div>
+        </aside>
 
-              {/* Post Content */}
-              <div className="flex-1 p-4">
-                {/* Post Header */}
-                <div className="flex items-center mb-4">
+        {/* Main Feed */}
+        <main className="w-3/4 p-6 space-y-6">
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-[#00FFAB]"></div>
+            </div>
+          ) : photos.length > 0 ? (
+            photos.map((photo) => (
+              <div
+                key={photo.id}
+                className="bg-[#181818] rounded shadow overflow-hidden flex flex-col md:flex-row"
+              >
+                <div className="md:w-1/3">
                   <img
-                    src={post.avatar}
-                    alt="avatar"
-                    className="w-10 h-10 rounded-full mr-3"
+                    src={photo.filepath}
+                    alt={photo.filename}
+                    className="w-full h-64 object-cover cursor-pointer"
+                    onClick={() => openModal(photo)}
                   />
-                  <h2 className="text-lg font-semibold text-green-400">
-                    {post.username}
-                  </h2>
                 </div>
-
-                {/* Image Gallery */}
-                <div className="flex space-x-4 overflow-x-auto mb-4">
-                  {post.images.map((img, idx) => (
-                    <img
-                      key={idx}
-                      src={img}
-                      alt={`gallery ${idx}`}
-                      className="w-72 h-auto rounded-md border border-green-700"
-                    />
-                  ))}
-                </div>
-
-                {/* Comments Section */}
-                <div>
-                  <h3 className="text-lg font-medium mb-2 flex items-center text-green-300">
-                    <MessageCircle className="w-5 h-5 mr-2 text-green-400" />{" "}
-                    Comments
-                  </h3>
-                  {post.comments.length > 0 ? (
-                    post.comments.map((comment) => (
-                      <div
-                        key={comment.id}
-                        className="mb-2 border-l-4 border-green-700 pl-3 bg-green-800 p-2 rounded-md"
+                <div className="md:w-2/3 p-6 flex flex-col justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-[#00FFAB]">{photo.filename}</h2>
+                    {photo.username && (
+                      <p className="text-sm text-gray-400 mt-1">by {photo.username}</p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-2">{formatTimestamp(photo.timestamp)}</p>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <button
+                        onClick={() => handleLike(photo.id)}
+                        className="flex items-center space-x-1 text-[#FF3B3B] hover:text-[#FF3B3B]"
                       >
-                        <span className="font-semibold text-green-300">
-                          {comment.username}:
-                        </span>{" "}
-                        {comment.text}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-green-400 italic">
-                      No comments yet. Be the first!
-                    </p>
-                  )}
-                  <div className="flex mt-4">
-                    <input
-                      type="text"
-                      placeholder="Add a comment..."
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-green-700 rounded-l-md bg-green-900 text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                    <button
-                      onClick={() => handleCommentSubmit(post.id)}
-                      className="px-4 py-2 bg-green-700 text-white rounded-r-md hover:bg-green-600 transition-colors"
-                    >
-                      Reply
-                    </button>
+                        <Heart className="w-6 h-6" />
+                        <span>Like {photo.likes > 0 ? `(${photo.likes})` : ""}</span>
+                      </button>
+                      <button
+                        onClick={() => openModal(photo)}
+                        className="flex items-center space-x-1 text-gray-400 hover:text-gray-300"
+                      >
+                        <MessageSquare className="w-6 h-6" />
+                        <span>Comment</span>
+                      </button>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => handleDownload(photo, ".png")}
+                        className="flex items-center space-x-1 text-[#00FFAB] hover:text-[#00E39E]"
+                      >
+                        <Download className="w-5 h-5" />
+                        <span className="text-sm">PNG</span>
+                      </button>
+                      <button
+                        onClick={() => handleDownload(photo, ".dsb")}
+                        className="flex items-center space-x-1 text-[#00FFAB] hover:text-[#00E39E]"
+                      >
+                        <Download className="w-5 h-5" />
+                        <span className="text-sm">DSB</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
+            ))
+          ) : (
+            <div className="text-center py-20 text-gray-400">
+              <p>No embroidered pieces available yet. Check back later.</p>
             </div>
-          ))}
-        </div>
+          )}
+        </main>
       </div>
+
+      {/* Modal for Photo Details */}
+      {modalOpen && selectedPhoto && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+          {/* Added max-h and overflow-y to prevent content from exceeding the viewport */}
+          <div className="bg-[#181818] rounded-lg overflow-hidden max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="relative">
+              <img
+                src={selectedPhoto.filepath}
+                alt={selectedPhoto.filename}
+                className="w-full max-h-[80vh] object-cover"
+              />
+              <button
+                onClick={closeModal}
+                className="absolute top-4 right-4 bg-gray-700 rounded-full p-2 hover:bg-gray-600 transition-colors text-[#D1D1D1]"
+              >
+                X
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-[#00FFAB]">{selectedPhoto.filename}</h2>
+                  {selectedPhoto.username && (
+                    <p className="text-sm text-gray-400">by {selectedPhoto.username}</p>
+                  )}
+                  <p className="text-xs text-gray-400">
+                    {formatTimestamp(selectedPhoto.timestamp)}
+                  </p>
+                </div>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => handleLike(selectedPhoto.id)}
+                    className="flex items-center space-x-1 text-[#00FFAB] hover:text-[#00E39E]"
+                  >
+                    <Heart className="w-5 h-5" />
+                    <span className="text-sm">Like {selectedPhoto.likes > 0 ? `(${selectedPhoto.likes})` : ""}</span>
+                  </button>
+                  <button
+                    onClick={() => setShowCommentInput(!showCommentInput)}
+                    className="flex items-center space-x-1 text-gray-400 hover:text-gray-300"
+                  >
+                    <MessageSquare className="w-5 h-5" />
+                    <span className="text-sm">Comment</span>
+                  </button>
+                  <button
+                    onClick={() => handleDownload(selectedPhoto, ".png")}
+                    className="flex items-center space-x-1 text-[#00FFAB] hover:text-[#00E39E]"
+                  >
+                    <Download className="w-5 h-5" />
+                    <span className="text-sm">PNG</span>
+                  </button>
+                  <button
+                    onClick={() => handleDownload(selectedPhoto, ".dsb")}
+                    className="flex items-center space-x-1 text-[#00FFAB] hover:text-[#00E39E]"
+                  >
+                    <Download className="w-5 h-5" />
+                    <span className="text-sm">DSB</span>
+                  </button>
+                </div>
+              </div>
+              {/* Comments Section */}
+              <div className="border-t pt-3">
+                {selectedPhoto.comments && selectedPhoto.comments.length > 0 ? (
+                  <div>
+                    <h3 className="text-lg font-bold text-[#00FFAB]">Comments</h3>
+                    {selectedPhoto.comments.map((comment, index) => (
+                      <p key={index} className="text-sm text-gray-300 mt-2">
+                        {comment}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-400">No comments yet.</p>
+                )}
+              </div>
+              {/* Comment Input */}
+              {showCommentInput && (
+                <div className="mt-4">
+                  <textarea
+                    value={commentInput}
+                    onChange={(e) => setCommentInput(e.target.value)}
+                    placeholder="Add a comment..."
+                    // Fixed height and disable resize to prevent overlapping
+                    className="w-full h-16 resize-none p-2 rounded bg-gray-800 text-gray-300"
+                  />
+                  <button
+                    onClick={handleCommentSubmit}
+                    className="mt-2 px-4 py-2 bg-[#00FFAB] text-[#121212] rounded"
+                  >
+                    Submit
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <footer className="bg-[#181818] text-gray-300 py-4 mt-8">
+        <div className="max-w-5xl mx-auto text-center text-sm">
+          &copy; {new Date().getFullYear()} EmbroideryHub. All rights reserved.
+        </div>
+      </footer>
     </div>
   );
 }
