@@ -10,13 +10,22 @@ export default function CommunityGalleryPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [showCommentInput, setShowCommentInput] = useState(false);
+  const [commentInput, setCommentInput] = useState("");
 
   useEffect(() => {
     async function fetchPhotos() {
       try {
         const res = await fetch("/api/photos");
         const data = await res.json();
-        setPhotos(data);
+        // Enhance each photo with default properties for likes and comments.
+        const enhanced = data.map(photo => ({
+          ...photo,
+          liked: false,
+          likes: 0,
+          comments: [],
+        }));
+        setPhotos(enhanced);
       } catch (error) {
         console.error("Error fetching photos:", error);
       } finally {
@@ -25,6 +34,27 @@ export default function CommunityGalleryPage() {
     }
     fetchPhotos();
   }, []);
+
+  // Toggle like status and update likes count.
+  const handleLike = (photoId) => {
+    setPhotos((prevPhotos) =>
+      prevPhotos.map((photo) => {
+        if (photo.id === photoId) {
+          const updated = {
+            ...photo,
+            liked: !photo.liked,
+            likes: photo.liked ? photo.likes - 1 : photo.likes + 1,
+          };
+          // If this photo is currently open in the modal, update it too.
+          if (selectedPhoto && selectedPhoto.id === photoId) {
+            setSelectedPhoto(updated);
+          }
+          return updated;
+        }
+        return photo;
+      })
+    );
+  };
 
   // Download image as PNG or convert to DSB via your endpoint.
   const handleDownload = async (photo, extension) => {
@@ -58,11 +88,15 @@ export default function CommunityGalleryPage() {
   const openModal = (photo) => {
     setSelectedPhoto(photo);
     setModalOpen(true);
+    setShowCommentInput(false);
+    setCommentInput("");
   };
 
   const closeModal = () => {
     setModalOpen(false);
     setSelectedPhoto(null);
+    setShowCommentInput(false);
+    setCommentInput("");
   };
 
   // Format timestamp for display.
@@ -71,6 +105,26 @@ export default function CommunityGalleryPage() {
     const isoString = timestamp.replace(" ", "T") + "Z";
     const dateObj = new Date(isoString);
     return isNaN(dateObj.getTime()) ? timestamp : dateObj.toLocaleString();
+  };
+
+  // Submit a new comment for the selected photo.
+  const handleCommentSubmit = () => {
+    if (!commentInput.trim()) return;
+    const newComment = commentInput.trim();
+    const updatedPhoto = {
+      ...selectedPhoto,
+      comments: [...(selectedPhoto.comments || []), newComment],
+    };
+    // Update the selected photo.
+    setSelectedPhoto(updatedPhoto);
+    // Update the corresponding photo in the main photos array.
+    setPhotos((prevPhotos) =>
+      prevPhotos.map((photo) =>
+        photo.id === updatedPhoto.id ? updatedPhoto : photo
+      )
+    );
+    setCommentInput("");
+    setShowCommentInput(false);
   };
 
   return (
@@ -93,7 +147,7 @@ export default function CommunityGalleryPage() {
             <ul className="space-y-2">
               <li>
                 <a href="#" className="text-[#00FFAB] hover:underline">
-                 Cat
+                  Cat
                 </a>
               </li>
               <li>
@@ -149,17 +203,20 @@ export default function CommunityGalleryPage() {
                       <p className="text-sm text-gray-400 mt-1">by {photo.username}</p>
                     )}
                     <p className="text-xs text-gray-400 mt-2">{formatTimestamp(photo.timestamp)}</p>
-                    <p className="mt-4 text-sm text-gray-300">
-                    
-                    </p>
                   </div>
                   <div className="mt-4 flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <button className="flex items-center space-x-1 text-[#FF3B3B] hover:text-[#FF3B3B]">
+                      <button
+                        onClick={() => handleLike(photo.id)}
+                        className="flex items-center space-x-1 text-[#FF3B3B] hover:text-[#FF3B3B]"
+                      >
                         <Heart className="w-6 h-6" />
-                        <span>Like</span>
+                        <span>Like {photo.likes > 0 ? `(${photo.likes})` : ""}</span>
                       </button>
-                      <button className="flex items-center space-x-1 text-gray-400 hover:text-gray-300">
+                      <button
+                        onClick={() => openModal(photo)}
+                        className="flex items-center space-x-1 text-gray-400 hover:text-gray-300"
+                      >
                         <MessageSquare className="w-6 h-6" />
                         <span>Comment</span>
                       </button>
@@ -195,7 +252,8 @@ export default function CommunityGalleryPage() {
       {/* Modal for Photo Details */}
       {modalOpen && selectedPhoto && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-[#181818] rounded-lg overflow-hidden max-w-3xl w-full">
+          {/* Added max-h and overflow-y to prevent content from exceeding the viewport */}
+          <div className="bg-[#181818] rounded-lg overflow-hidden max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="relative">
               <img
                 src={selectedPhoto.filepath}
@@ -222,6 +280,20 @@ export default function CommunityGalleryPage() {
                 </div>
                 <div className="flex space-x-3">
                   <button
+                    onClick={() => handleLike(selectedPhoto.id)}
+                    className="flex items-center space-x-1 text-[#00FFAB] hover:text-[#00E39E]"
+                  >
+                    <Heart className="w-5 h-5" />
+                    <span className="text-sm">Like {selectedPhoto.likes > 0 ? `(${selectedPhoto.likes})` : ""}</span>
+                  </button>
+                  <button
+                    onClick={() => setShowCommentInput(!showCommentInput)}
+                    className="flex items-center space-x-1 text-gray-400 hover:text-gray-300"
+                  >
+                    <MessageSquare className="w-5 h-5" />
+                    <span className="text-sm">Comment</span>
+                  </button>
+                  <button
                     onClick={() => handleDownload(selectedPhoto, ".png")}
                     className="flex items-center space-x-1 text-[#00FFAB] hover:text-[#00E39E]"
                   >
@@ -237,16 +309,39 @@ export default function CommunityGalleryPage() {
                   </button>
                 </div>
               </div>
-              <div className="flex items-center space-x-6 border-t pt-3">
-                <button className="flex items-center space-x-1 text-[#FF3B3B] hover:text-[#FF3B3B]">
-                  <Heart className="w-6 h-6" />
-                  <span>Like</span>
-                </button>
-                <button className="flex items-center space-x-1 text-gray-400 hover:text-gray-300">
-                  <MessageSquare className="w-6 h-6" />
-                  <span>Comment</span>
-                </button>
+              {/* Comments Section */}
+              <div className="border-t pt-3">
+                {selectedPhoto.comments && selectedPhoto.comments.length > 0 ? (
+                  <div>
+                    <h3 className="text-lg font-bold text-[#00FFAB]">Comments</h3>
+                    {selectedPhoto.comments.map((comment, index) => (
+                      <p key={index} className="text-sm text-gray-300 mt-2">
+                        {comment}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-400">No comments yet.</p>
+                )}
               </div>
+              {/* Comment Input */}
+              {showCommentInput && (
+                <div className="mt-4">
+                  <textarea
+                    value={commentInput}
+                    onChange={(e) => setCommentInput(e.target.value)}
+                    placeholder="Add a comment..."
+                    // Fixed height and disable resize to prevent overlapping
+                    className="w-full h-16 resize-none p-2 rounded bg-gray-800 text-gray-300"
+                  />
+                  <button
+                    onClick={handleCommentSubmit}
+                    className="mt-2 px-4 py-2 bg-[#00FFAB] text-[#121212] rounded"
+                  >
+                    Submit
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
