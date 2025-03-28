@@ -1,12 +1,13 @@
 "use client";
-
 import Link from "next/link";
+
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { downloadDSB } from "./dsbUtils";
 
 export default function FinishPage() {
-  const [imageUrl, setImageUrl] = useState(null);
+  const [displayImageUrl, setDisplayImageUrl] = useState(null);
+  const [pixelatedImageUrl, setPixelatedImageUrl] = useState(null);
   const [progress, setProgress] = useState({
     stage: "",
     current: 0,
@@ -14,16 +15,13 @@ export default function FinishPage() {
     message: "",
   });
   const [error, setError] = useState(null);
-  const searchParams = useSearchParams();
-  const [cleanedImageUrl, setCleanedImageUrl] = useState(null);
 
   // Load StreamSaver dependency
   useEffect(() => {
     const loadStreamSaver = async () => {
       try {
         const script = document.createElement("script");
-        script.src =
-          "https://cdn.jsdelivr.net/npm/streamsaver@latest/StreamSaver.min.js";
+        script.src = "https://cdn.jsdelivr.net/npm/streamsaver@latest/StreamSaver.min.js";
         script.async = true;
         document.body.appendChild(script);
         return new Promise((resolve) => {
@@ -42,8 +40,8 @@ export default function FinishPage() {
     try {
       const imageData = JSON.parse(localStorage.getItem("imageData"));
       if (imageData) {
-        setImageUrl(imageData.imageUrl);
-        setCleanedImageUrl(imageData.imageUrl);
+        setDisplayImageUrl(imageData.displayImageUrl);
+        setPixelatedImageUrl(imageData.pixelatedImageUrl);
       }
     } catch (error) {
       console.error("Error retrieving image data:", error);
@@ -77,7 +75,7 @@ export default function FinishPage() {
 
   // Handle downloading the image as a .dsb file
   const handleDownloadDSB = async () => {
-    if (!imageUrl) {
+    if (!pixelatedImageUrl) {
       setError("No image URL provided");
       return;
     }
@@ -93,17 +91,15 @@ export default function FinishPage() {
       if (!imageData) {
         throw new Error("No image data found in storage");
       }
-      await downloadDSB(
-        imageData.imageUrl,
-        (stage, current, total, message) => {
-          setProgress({
-            stage,
-            current,
-            total,
-            message: message || `${stage} (${Math.round((current / total) * 100)}%)`,
-          });
-        }
-      );
+
+      await downloadDSB(imageData.pixelatedImageUrl, (stage, current, total, message) => {
+        setProgress({
+          stage,
+          current,
+          total,
+          message: message || `${stage} (${Math.round((current / total) * 100)}%)`,
+        });
+      });
       setProgress({
         stage: "Complete",
         current: 100,
@@ -117,27 +113,9 @@ export default function FinishPage() {
     }
   };
 
-  // Helper function to set progress bar color based on stage
-  const getProgressColor = () => {
-    switch (progress.stage) {
-      case "Loading":
-        return "#3B82F6";
-      case "Analysis":
-        return "#8B5CF6";
-      case "Converting":
-        return "#22C55E";
-      case "Finalizing":
-        return "#EAB308";
-      case "Complete":
-        return "#16A34A";
-      default:
-        return "#6B7280";
-    }
-  };
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Navigation Bar */}
       <nav className="w-full bg-gray-800 py-4 px-8 flex justify-between items-center shadow-md">
         <h1 className="text-xl font-bold text-white">Auto Digitizing</h1>
         <Link href="/">
@@ -146,46 +124,41 @@ export default function FinishPage() {
           </button>
         </Link>
       </nav>
-
-      {/* Main Content */}
       <div className="flex flex-col items-center justify-center p-6">
         <div className="bg-black shadow-lg rounded-lg p-8 mt-10 max-w-md w-full">
-          <h2 className="text-2xl font-bold mb-6 text-center">
+          <h2 className="text-2xl font-bold mb-6 text-center text-white">
             Processing Complete!
           </h2>
-
-          {cleanedImageUrl && (
-            <div className="mb-6">
+          {displayImageUrl && (
+            <div className="mb-6 flex items-center justify-center">
               <img
-                src={cleanedImageUrl}
+                src={displayImageUrl}
                 crossOrigin="anonymous"
                 alt="Processed"
-                className="w-full h-auto rounded"
+                className="max-w-full max-h-full rounded-lg shadow-lg border border-gray-700"
                 onError={(e) => {
-                  console.error("Failed to load image:", cleanedImageUrl);
+                  console.error("Failed to load image:", displayImageUrl);
                   e.target.style.display = "none";
                   setError("Failed to load image");
                 }}
               />
             </div>
           )}
-
           <button
             onClick={handleDownloadDSB}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
           >
             Download as .dsb File
-          </button>
 
           {progress.stage && (
-            <div className="mt-4">
-              <p style={{ color: getProgressColor() }}>{progress.message}</p>
+            <div className="mt-4 text-center text-white">
+              <p>{progress.message}</p>
             </div>
           )}
-
           {error && (
-            <div className="mt-4">
-              <p className="text-red-500">{error}</p>
+            <div className="mt-4 text-center text-red-500">
+              <p>{error}</p>
+
             </div>
           )}
         </div>

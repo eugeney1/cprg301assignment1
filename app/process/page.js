@@ -22,6 +22,7 @@ export default function ProcessingPage() {
   const [currentDisplayedImage, setCurrentDisplayedImage] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [imageVersion, setImageVersion] = useState(0);
+  const [pixelatedDataUrl, setPixelatedDataUrl] = useState(null);
   const [currentPalette, setCurrentPalette] = useState([]);
   const [livePalette, setLivePalette] = useState([]);
   const [customPaletteActive, setCustomPaletteActive] = useState(false);
@@ -56,7 +57,9 @@ export default function ProcessingPage() {
         setDisplayHeight(img.height);
       };
       img.onerror = () => {
-        alert("Failed to load the image. Please try again with a different image.");
+        alert(
+          "Failed to load the image. Please try again with a different image."
+        );
       };
       img.src = decodedUrl;
     }
@@ -90,7 +93,10 @@ export default function ProcessingPage() {
   const hexToRgb = (hex) => {
     let normalizedHex = hex.replace("#", "");
     if (normalizedHex.length === 3) {
-      normalizedHex = normalizedHex.split("").map((c) => c + c).join("");
+      normalizedHex = normalizedHex
+        .split("")
+        .map((c) => c + c)
+        .join("");
     }
     const bigint = parseInt(normalizedHex, 16);
     const r = (bigint >> 16) & 255;
@@ -156,6 +162,7 @@ export default function ProcessingPage() {
 
     setIsProcessing(true);
     try {
+      // Load the original image
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.src = imageUrl;
@@ -164,25 +171,36 @@ export default function ProcessingPage() {
         img.onerror = reject;
       });
 
+      // Set up the canvas with display dimensions
       const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
       canvas.width = displayWidth;
       canvas.height = displayHeight;
 
-      ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
-
+      // Initialize Pixelit instance
       const pixelitInstance = new Pixelit({
         from: img,
         to: canvas,
-        scale: size * 5,
+        scale: size, // size ranges from 3 to 8, adjusted to 0.03-0.08 in Pixelit constructor
       });
 
+      // Apply palette (custom or dynamic)
       if (customPaletteActive && currentPalette.length > 0) {
         pixelitInstance.setPalette(
           currentPalette.map((color) => parseColor(color))
         );
       } else {
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        // Generate dynamic palette
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = displayWidth;
+        tempCanvas.height = displayHeight;
+        const tempCtx = tempCanvas.getContext("2d");
+        tempCtx.drawImage(img, 0, 0, displayWidth, displayHeight);
+        const imageData = tempCtx.getImageData(
+          0,
+          0,
+          displayWidth,
+          displayHeight
+        );
         const pixels = [];
         for (let i = 0; i < imageData.data.length; i += 4) {
           pixels.push([
@@ -201,6 +219,19 @@ export default function ProcessingPage() {
         );
       }
 
+      // Get the small, pixelated image data URL
+      const smallDataUrl = pixelitInstance.getSmallImageDataUrl();
+      setPixelatedDataUrl(smallDataUrl);
+
+      // Load the small image to calculate stitch count
+      const smallImg = new Image();
+      smallImg.src = smallDataUrl;
+      await new Promise((resolve) => (smallImg.onload = resolve));
+      const pixelCount = smallImg.width * smallImg.height;
+      const newStitchCount = pixelCount * 9; // 9 stitches per pixel
+      setStitchCount(newStitchCount);
+
+      // Generate the upscaled image for display
       pixelitInstance
         .setMaxWidth(displayWidth)
         .setMaxHeight(displayHeight)
@@ -208,22 +239,14 @@ export default function ProcessingPage() {
         .convertPalette()
         .resizeImage();
 
-      // Convert to blob and update displayed image
-      const blob = await new Promise((resolve) =>
-        canvas.toBlob(resolve, "image/png")
-      );
-      const objectUrl = URL.createObjectURL(blob);
-      setCurrentDisplayedImage(objectUrl);
-
-      // Compute stitch count based on pixelated dimensions
-      const pixelatedImg = new Image();
-      pixelatedImg.src = objectUrl;
-      await new Promise((resolve) => (pixelatedImg.onload = resolve));
-      const pixelCount = pixelatedImg.width * pixelatedImg.height;
-      const newStitchCount = pixelCount * 9; // 9 stitches per pixel
-      setStitchCount(newStitchCount);
+      // Update the displayed image
+      canvas.toBlob((blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        setCurrentDisplayedImage(objectUrl);
+      }, "image/png");
     } catch (error) {
       alert("Error generating preview");
+      console.error(error);
     } finally {
       setIsProcessing(false);
     }
@@ -231,21 +254,18 @@ export default function ProcessingPage() {
 
   // Updated handleConvert to use stored stitch count
   const handleConvert = async () => {
-    const blob = await fetch(currentDisplayedImage).then((res) => res.blob());
-    const pixelatedDataUrl = await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(blob);
-    });
-
+    if (!pixelatedDataUrl || !currentDisplayedImage) {
+      alert("Please generate a preview first.");
+      return;
+    }
     const dimensions = calculateDsbDimensions();
-
     localStorage.setItem(
       "imageData",
       JSON.stringify({
-        imageUrl: pixelatedDataUrl,
+        displayImageUrl: currentDisplayedImage, // Upscaled image for display
+        pixelatedImageUrl: pixelatedDataUrl, // Small image for DSB
         colors: colors,
-        stitchCount: stitchCount, // Use the pre-computed stitch count
+        stitchCount: stitchCount,
         plusX: dimensions.plusX,
         minusX: dimensions.minusX,
         plusY: dimensions.plusY,
@@ -254,7 +274,6 @@ export default function ProcessingPage() {
         ay: dimensions.ay,
       })
     );
-
     router.push("/finished");
   };
 
@@ -285,7 +304,7 @@ export default function ProcessingPage() {
       const pixelitInstance = new Pixelit({
         from: img,
         to: canvas,
-        scale: size * 5,
+        scale: size * 1,
         palette: updatedPalette.map((color) => parseColor(color)),
       });
 
@@ -478,14 +497,22 @@ export default function ProcessingPage() {
             <button
               onClick={handlePreview}
               disabled={isProcessing}
-              className={`w-full ${isProcessing ? "bg-gray-500 cursor-not-allowed" : "bg-[#00FFAB] hover:bg-[#00E39E]"} text-black px-4 py-2 rounded-lg`}
+              className={`w-full ${
+                isProcessing
+                  ? "bg-gray-500 cursor-not-allowed"
+                  : "bg-[#00FFAB] hover:bg-[#00E39E]"
+              } text-black px-4 py-2 rounded-lg`}
             >
               {isProcessing ? "Processing..." : "Generate Preview"}
             </button>
             <button
               onClick={handleConvert}
               disabled={isProcessing}
-              className={`w-full ${isProcessing ? "bg-gray-500 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-400"} text-black px-4 py-2 rounded-lg`}
+              className={`w-full ${
+                isProcessing
+                  ? "bg-gray-500 cursor-not-allowed"
+                  : "bg-blue-500 hover:bg-blue-400"
+              } text-black px-4 py-2 rounded-lg`}
             >
               {isProcessing ? "Processing..." : "Convert"}
             </button>

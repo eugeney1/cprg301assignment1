@@ -1,5 +1,4 @@
 // dsbUtils.js
-import quantize from "quantize";
 // Utility commands for DSB file creation
 export const DSB_COMMANDS = {
   STITCH: 0x80, // 10000000
@@ -14,8 +13,9 @@ export const DSB_COMMANDS = {
   END: 0xf8, // 11111000
 };
 
-export const STITCH_HEIGHT_OFFSET = 3; // vertical offset between stitches
-export const MAX_JUMP = 255;
+export const STITCH_HEIGHT_OFFSET = 4; // vertical offset between stitches
+export const MAX_JUMP = 61;
+export const STITCH_LENGTH = 12;
 
 export class DSBWriter {
   constructor() {
@@ -116,14 +116,14 @@ export class DSBWriter {
     const symmetricY = Math.max(this.maxY, Math.abs(this.minY));
 
     const headerInfo = [
-      `ST:      ${this.stitchCount}`,
+      `ST:  ${this.stitchCount}`,
       `CO:  ${this.colorChanges}`,
-      `+X:    ${symmetricX}`, // Use largest X value
-      `-X:    ${symmetricX}`, // Mirror +X
-      `+Y:    ${symmetricY}`, // Use largest Y value
-      `-Y:    ${symmetricY}`, // Mirror +Y
-      `AX:+    ${this.currentX}`,
-      `AY:+    ${this.currentY}`,
+      `+X:  ${symmetricX}`, // Use largest X value
+      `-X:  ${symmetricX}`, // Mirror +X
+      `+Y:  ${symmetricY}`, // Use largest Y value
+      `-Y:  ${symmetricY}`, // Mirror +Y
+      `AX:+  ${this.currentX}`,
+      `AY:+  ${this.currentY}`,
     ];
 
     for (const line of headerInfo) {
@@ -132,6 +132,9 @@ export class DSBWriter {
     }
 
     header.fill(0x20, offset, 512);
+
+    //not sure what these are for, just found them in "real" dsb files.
+    header.set([0x00, 0x00, 0x00, 0x00], 499);
     return header;
   }
 
@@ -143,8 +146,8 @@ export class DSBWriter {
     while (currentX !== targetX || currentY !== targetY) {
       let dx = targetX - currentX;
       let dy = targetY - currentY;
-      let jumpX = Math.min(Math.abs(dx), 255);
-      let jumpY = Math.min(Math.abs(dy), 255);
+      let jumpX = Math.min(Math.abs(dx), MAX_JUMP);
+      let jumpY = Math.min(Math.abs(dy), MAX_JUMP);
       if (dx < 0) jumpX = -jumpX;
       if (dy < 0) jumpY = -jumpY;
       const command = this.getJumpCommand(jumpX, jumpY);
@@ -178,7 +181,7 @@ export class DSBWriter {
  */
 export function generatePixel() {
   const stitches = [];
-  const pixel_length = 9;
+  const pixel_length = 12;
 
   // Starting stitch
   stitches.push({
@@ -202,13 +205,13 @@ export function generatePixel() {
   }
 
   stitches.push({
-    command: DSB_COMMANDS.STITCH,
+    command: DSB_COMMANDS.STITCH_NEG_X,
     y: 0,
     x: pixel_length,
   });
 
   stitches.push({
-    command: DSB_COMMANDS.STITCH,
+    command: DSB_COMMANDS.STITCH_NEG_Y,
     y: pixel_length,
     x: 0,
   });
@@ -219,11 +222,10 @@ export function generatePixel() {
     x: pixel_length,
   });
 
-  // Move to the right for the next pixel
   stitches.push({
-    command: DSB_COMMANDS.JUMP,
-    y: 3,
-    x: pixel_length,
+    command: DSB_COMMANDS.STITCH,
+    y: pixel_length,
+    x: 0,
   });
 
   return stitches;
@@ -329,7 +331,7 @@ async function floodFill(imageData, onProgress = null) {
 // In dsbUtils.js
 
 async function processRegionStream(dsb, region, onProgress) {
-  const pixel_length = 9;
+  const pixel_length = 12;
   const positions = [];
 
   // Step 1: Collect all positions where region[j][i] === 1
@@ -353,7 +355,6 @@ async function processRegionStream(dsb, region, onProgress) {
     const targetX = i * pixel_length;
     const targetY = j * pixel_length;
 
-    // Jump to the starting position of the pixel
     await dsb.addJumpTo(targetX, targetY);
 
     // Add stitch commands for the pixel
@@ -413,10 +414,7 @@ export async function downloadDSB(imageUrl, onProgress = null) {
   try {
     console.log("Starting DSB conversion process");
     console.time("Total conversion time");
-
-    // Retrieve additional data from localStorage
     const imageData = JSON.parse(localStorage.getItem("imageData"));
-    const colorCount = imageData.colors || 7;
 
     // Load the pixelated image directly
     const img = new Image();
@@ -431,62 +429,65 @@ export async function downloadDSB(imageUrl, onProgress = null) {
     canvas.height = img.height;
     const ctx = canvas.getContext("2d");
     ctx.drawImage(img, 0, 0);
-    const imageDataObj = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-    console.log(
-      "Processing pixelated image:",
-      imageDataObj.width,
-      "x",
-      imageDataObj.height
-    );
-
-    // Extract pixels from the pixelated image
-    const pixels = [];
-    for (let i = 0; i < imageDataObj.data.length; i += 4) {
-      pixels.push([
-        imageDataObj.data[i], // R
-        imageDataObj.data[i + 1], // G
-        imageDataObj.data[i + 2], // B
-      ]);
-    }
-
-    // Quantize the image to the selected number of colors
-    const colorMap = quantize(pixels, colorCount);
-    const palette = colorMap.palette();
+    const ImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
     // Create regions based on the quantized colors
-    const regions = Array.from({ length: colorCount }, () => {
-      const region = new Array(imageDataObj.height);
-      for (let y = 0; y < imageDataObj.height; y++) {
-        region[y] = new Uint8Array(imageDataObj.width);
+    const regions = Array.from({ length: imageData.colors }, () => {
+      const region = new Array(ImageData.height);
+      for (let y = 0; y < ImageData.height; y++) {
+        region[y] = new Uint8Array(ImageData.width);
       }
       return region;
     });
 
-    // Fill regions with pixel data
-    for (let y = 0; y < imageDataObj.height; y++) {
-      for (let x = 0; x < imageDataObj.width; x++) {
-        const idx = (y * imageDataObj.width + x) * 4;
-        const r = imageDataObj.data[idx];
-        const g = imageDataObj.data[idx + 1];
-        const b = imageDataObj.data[idx + 2];
+    // Extract unique colors from imageData.data
+    const uniqueColors = new Set();
+    for (let i = 0; i < ImageData.data.length; i += 4) {
+      const r = ImageData.data[i];
+      const g = ImageData.data[i + 1];
+      const b = ImageData.data[i + 2];
+      const colorKey = `${r},${g},${b}`;
+      uniqueColors.add(colorKey);
+    }
 
-        // Find the closest color in the palette
-        const color = colorMap.map([r, g, b]);
+    // Build the palette
+    const palette = Array.from(uniqueColors).map((colorKey) => {
+      const [r, g, b] = colorKey.split(",").map(Number);
+      return [r, g, b];
+    });
+
+    // Fill regions with pixel data
+    for (let y = 0; y < ImageData.height; y++) {
+      for (let x = 0; x < ImageData.width; x++) {
+        const idx = (y * ImageData.width + x) * 4;
+        const r = ImageData.data[idx];
+        const g = ImageData.data[idx + 1];
+        const b = ImageData.data[idx + 2];
+
+        // Directly find the index of the pixel’s color in the palette
         const colorIndex = palette.findIndex(
-          (c) => c[0] === color[0] && c[1] === color[1] && c[2] === color[2]
+          (c) => c[0] === r && c[1] === g && c[2] === b
         );
 
         if (colorIndex >= 0) {
           regions[colorIndex][y][x] = 1;
+        } else {
+          console.warn(
+            `Color RGB(${r},${g},${b}) not found in palette at (${x},${y})`
+          );
         }
       }
+    }
+
+    // Reverse the rows in each region to flip the image vertically
+    for (let i = 0; i < regions.length; i++) {
+      regions[i] = regions[i].reverse();
     }
 
     // Set up DSB header info from stored data
     const dsbHeaderInfo = {
       stitchCount: imageData.stitchCount,
-      colorChanges: colorCount,
+      colorChanges: imageData.colors,
       plusX: imageData.plusX,
       plusY: imageData.plusY,
       minusX: imageData.minusX,

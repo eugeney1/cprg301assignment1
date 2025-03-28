@@ -19,7 +19,7 @@ export default function FileUploadPage() {
   } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showSignInOptions, setShowSignInOptions] = useState(false);
+  const [showSignInOptions, setShowSignInOptions] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [file, setFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -110,26 +110,50 @@ export default function FileUploadPage() {
   return (
     <div className="min-h-screen bg-[#121212] text-[#D1D1D1]">
       {/* Header with Sign In/Profile Options */}
-      <header className="w-full p-4 flex justify-end items-center bg-[#181818]">
-        {user ? (
-          <div className="relative flex items-center space-x-4">
-            <div className="cursor-pointer" onClick={toggleProfileDropdown}>
-              <img 
-                src={user?.photoURL || "/default-avatar.png"} 
-                alt="User Profile" 
-                className="w-8 h-8 rounded-full border border-gray-600" 
-              />
-            </div>
-            <Link href="/signin/chatbot">
-              <button className="bg-[#00FFAB] text-black px-4 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300">
-                Chat with AI
-              </button>
+      <header className="w-full p-4 flex justify-between items-center bg-[#181818]">
+  {/* Left side: Always show "Auto Digitizing" title */}
+  <h1 className="text-[#00FFAB] text-xl font-bold">Auto Digitizing</h1>
+
+  {/* Right side: Sign In, Chat with AI, Community buttons */}
+  <div className="flex items-center space-x-4">
+  <Link href="/background-removal">
+  <button className="bg-[#002aff] text-black px-6 py-2 rounded-full hover:bg-[#0077cc] transition duration-300">
+    Remove Background
+  </button>
+</Link>
+    <Link href="/signin/chatbot">
+      <button className="bg-[#00FFAB] text-black px-4 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300">
+        Chat with AI
+      </button>
+    </Link>
+    {user && (
+  <Link href="/signin/community">
+    <button className="bg-gray-700 text-[#00FFAB] px-4 py-2 rounded-full hover:bg-gray-600 transition duration-300">
+      Community
+    </button>
+  </Link>
+)}
+
+
+    {/* Profile & Dropdown for Logged-in Users */}
+    {user ? (
+      <div className="relative flex items-center space-x-4">
+        <div className="cursor-pointer" onClick={toggleProfileDropdown}>
+          <img 
+            src={user?.photoURL || "/default-avatar.png"} 
+            alt="User Profile" 
+            className="w-8 h-8 rounded-full border border-gray-600" 
+          />
+        </div>
+        {isDropdownOpen && (
+          <div className="absolute right-0 mt-12 w-48 bg-[#181818] rounded-lg shadow-lg">
+            <Link href="/signin/settings" className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]">
+              Settings
             </Link>
-            <Link href="/signin/community">
-              <button className="bg-gray-700 text-[#00FFAB] px-4 py-2 rounded-full hover:bg-gray-600 transition duration-300">
-                Community
-              </button>
+            <Link href="/gallery" className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]">
+              Gallery
             </Link>
+
             {isDropdownOpen && (
               <div className="absolute right-0 mt-12 w-48 bg-[#181818] rounded-lg shadow-lg">
                 <Link
@@ -153,15 +177,21 @@ export default function FileUploadPage() {
               </div>
             )}
           </div>
-        ) : (
-          <button
-            onClick={toggleSignInOptions}
-            className="bg-[#00FFAB] text-black px-4 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300"
-          >
-            Sign In
-          </button>
         )}
-      </header>
+      </div>
+    ) : (
+      // Show "Sign In" button if the modal is NOT open
+      !showSignInOptions && (
+        <button 
+          onClick={() => setShowSignInOptions(true)}
+          className="bg-[#00FFAB] text-black px-4 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300"
+        >
+          Sign In
+        </button>
+      )
+    )}
+  </div>
+</header>
 
       {/* Main Content */}
       <main className="flex flex-col items-center justify-center p-4">
