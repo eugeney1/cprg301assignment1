@@ -150,8 +150,7 @@ export default function CommunityGalleryPage() {
                     )}
                     <p className="text-xs text-gray-400 mt-2">{formatTimestamp(photo.timestamp)}</p>
                     <p className="mt-4 text-sm text-gray-300">
-                      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus euismod,
-                      justo eu consequat blandit, libero justo vehicula lacus.
+                    
                     </p>
                   </div>
                   <div className="mt-4 flex items-center justify-between">

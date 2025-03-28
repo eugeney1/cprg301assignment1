@@ -88,7 +88,7 @@ export default function GalleryPage() {
     <div className="min-h-screen bg-gray-900 text-gray-200">
       <nav className="w-full bg-gray-800 py-4 px-8 flex justify-between items-center shadow-lg">
         <h1 className="text-2xl font-bold text-green-400">Photo Gallery</h1>
-        <Link href="/">
+        <Link href="/signin">
           <button className="bg-green-500 text-black px-4 py-2 rounded-md hover:bg-green-400 transition-all duration-200">
             Return to Main Page
           </button>
