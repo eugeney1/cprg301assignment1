@@ -211,6 +211,11 @@ export default function BackgroundRemovalPage() {
       <header className="w-full p-4 bg-[#181818] flex justify-between items-center">
         <h1 className="text-xl font-bold text-[#00FFAB]">Background Removal</h1>
         <div className="space-x-4">
+          <Link href="/sketchpad">
+            <button className="bg-[#00FFAB] text-black px-4 py-2 rounded-full hover:bg-[#00CC8B] transition">
+              Sketch Pad
+            </button>
+          </Link>
           <Link href="/">
             <button className="bg-[#00FFAB] text-black px-4 py-2 rounded-full hover:bg-[#00CC8B] transition">
               Auto Digitizing
