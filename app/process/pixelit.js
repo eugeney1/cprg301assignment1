@@ -176,6 +176,46 @@ export default class pixelit {
   //TODO end
 
   /**
+   * Get the data URL of the small, pixelated image before upscaling.
+   * @returns {string} Data URL of the small image.
+   */
+  getSmallImageDataUrl() {
+    // Calculate scaled dimensions
+    const scaledW = Math.max(1, this.drawto.width * this.scale);
+    const scaledH = Math.max(1, this.drawto.height * this.scale);
+
+    // Create temporary canvas
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = scaledW;
+    tempCanvas.height = scaledH;
+    const tempContext = tempCanvas.getContext("2d");
+
+    // Draw the image scaled down
+    tempContext.drawImage(this.drawfrom, 0, 0, scaledW, scaledH);
+
+    // If a palette is set, apply it
+    if (this.palette.length > 0) {
+      const imgData = tempContext.getImageData(0, 0, scaledW, scaledH);
+      for (let i = 0; i < imgData.data.length; i += 4) {
+        const color = [
+          imgData.data[i],
+          imgData.data[i + 1],
+          imgData.data[i + 2],
+        ];
+        const similar = this.similarColor(color);
+        imgData.data[i] = similar[0];
+        imgData.data[i + 1] = similar[1];
+        imgData.data[i + 2] = similar[2];
+        imgData.data[i + 3] = 255; // Ensure full opacity
+      }
+      tempContext.putImageData(imgData, 0, 0);
+    }
+
+    // Return the data URL
+    return tempCanvas.toDataURL("image/png");
+  }
+
+  /**
    * pixelate based on @author rogeriopvl <https://github.com/rogeriopvl/8bit>
    * Draws a pixelated version of an image in a given canvas
    */

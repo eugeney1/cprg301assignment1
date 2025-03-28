@@ -57,6 +57,11 @@ export default function FileUploadPage() {
       <nav className="w-full bg-[#181818] p-4 fixed top-0 left-0 flex justify-between items-center shadow-md">
         <h1 className="text-xl text-[#00FFAB] font-semibold px-6">Auto Digitizing</h1>
         <div className="flex space-x-4">
+          <Link href="/background-removal">
+            <button className="bg-[#002aff] text-black px-6 py-2 rounded-full hover:bg-[#007ecc] transition duration-300">
+              Remove Background
+            </button>
+          </Link>
           <Link href="/chatbot">
             <button className="bg-[#00FFAB] text-black px-6 py-2 rounded-full hover:bg-[#00CC8B] transition duration-300">
               Chat with AI
