@@ -4,6 +4,24 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import "/app/globals.css";
 
+// Toggle component
+const ToggleSwitch = ({ isChecked, onChange }) => (
+  <label className="inline-flex items-center cursor-pointer mt-2">
+    <input
+      type="checkbox"
+      checked={isChecked}
+      onChange={onChange}
+      className="sr-only peer"
+    />
+    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-400 rounded-full peer dark:bg-gray-700 peer-checked:bg-green-500 relative">
+      <div className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition peer-checked:translate-x-5"></div>
+    </div>
+    <span className="ml-3 text-sm font-medium text-gray-300">
+      {isChecked ? 'Public' : 'Private'}
+    </span>
+  </label>
+);
+
 export default function GalleryPage() {
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +52,7 @@ export default function GalleryPage() {
       });
 
       if (res.ok) {
-        setPhotos((prevPhotos) => prevPhotos.filter(photo => photo.id !== id));
+        setPhotos((prev) => prev.filter(photo => photo.id !== id));
       } else {
         console.error('Failed to delete photo');
       }
@@ -43,9 +61,6 @@ export default function GalleryPage() {
     }
   };
 
-  // This function handles downloading files.
-  // If the user wants a PNG, it fetches the original image.
-  // If a DSB is requested, it calls the conversion endpoint to create an embroidery file.
   const handleDownload = async (photo, extension) => {
     try {
       let blob;
@@ -53,18 +68,13 @@ export default function GalleryPage() {
         const response = await fetch(photo.filepath);
         blob = await response.blob();
       } else if (extension === ".dsb") {
-        // Call a dedicated API endpoint that converts the image
-        // to an embroidery file format (DSB) that works with your machine.
-        // This endpoint must be implemented on your server.
         const response = await fetch(`/api/convert-to-dsb?id=${photo.id}`);
-        if (!response.ok) {
-          throw new Error('Embroidery conversion failed.');
-        }
+        if (!response.ok) throw new Error('Embroidery conversion failed.');
         blob = await response.blob();
       }
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-      // Replace the file extension with the new one.
       const baseFilename = photo.filename.replace(/\.[^/.]+$/, "");
       a.href = url;
       a.download = baseFilename + extension;
@@ -74,6 +84,28 @@ export default function GalleryPage() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error downloading image:", error);
+    }
+  };
+
+  const handleTogglePublic = async (id, newStatus) => {
+    try {
+      const res = await fetch('/api/photos/toggle-visibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, isPublic: newStatus }),
+      });
+
+      if (res.ok) {
+        setPhotos((prev) =>
+          prev.map(photo =>
+            photo.id === id ? { ...photo, isPublic: newStatus } : photo
+          )
+        );
+      } else {
+        console.error('Failed to update visibility');
+      }
+    } catch (error) {
+      console.error('Error updating visibility:', error);
     }
   };
 
@@ -93,12 +125,15 @@ export default function GalleryPage() {
             Return to Main Page
           </button>
         </Link>
+        <Link href="/signin/community">
+          <button className="bg-green-500 text-black px-4 py-2 rounded-md hover:bg-green-400 transition-all duration-200">
+            Community
+          </button>
+        </Link>
       </nav>
 
       <main className="max-w-7xl mx-auto py-10 px-4">
-        <h2 className="text-4xl font-extrabold text-center mb-10">
-          Your Gallery
-        </h2>
+        <h2 className="text-4xl font-extrabold text-center mb-10">Your Gallery</h2>
 
         {loading ? (
           <div className="flex justify-center items-center">
@@ -117,12 +152,14 @@ export default function GalleryPage() {
                   className="w-full h-64 object-cover"
                 />
                 <div className="p-4">
-                  <p className="text-xl font-semibold text-green-300">
-                    {photo.filename}
-                  </p>
-                  <p className="text-sm text-gray-400">
-                    {formatTimestamp(photo.timestamp)}
-                  </p>
+                  <p className="text-xl font-semibold text-green-300">{photo.filename}</p>
+                  <p className="text-sm text-gray-400">{formatTimestamp(photo.timestamp)}</p>
+
+                  <ToggleSwitch
+                    isChecked={photo.isPublic}
+                    onChange={() => handleTogglePublic(photo.id, !photo.isPublic)}
+                  />
+
                   <div className="mt-4 flex flex-col gap-2">
                     <div className="flex gap-2">
                       <button
@@ -151,9 +188,7 @@ export default function GalleryPage() {
           </div>
         ) : (
           <div className="text-center py-20">
-            <p className="text-lg text-gray-400">
-              No photos available yet. Please check back later.
-            </p>
+            <p className="text-lg text-gray-400">No photos available yet. Please check back later.</p>
           </div>
         )}
       </main>
