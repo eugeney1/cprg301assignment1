@@ -123,11 +123,6 @@ export default function FinishPage() {
             Return to Main Page
           </button>
         </Link>
-        <Link href="/gallery">
-          <button className="bg-green-500 hover:bg-green-600 text-black px-4 py-2 rounded transition">
-            Gallery
-          </button>
-        </Link>
       </nav>
       <div className="flex flex-col items-center justify-center p-6">
         <div className="bg-black shadow-lg rounded-lg p-8 mt-10 max-w-md w-full">
