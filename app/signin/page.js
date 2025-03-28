@@ -145,15 +145,6 @@ export default function FileUploadPage() {
             className="w-8 h-8 rounded-full border border-gray-600" 
           />
         </div>
-        {isDropdownOpen && (
-          <div className="absolute right-0 mt-12 w-48 bg-[#181818] rounded-lg shadow-lg">
-            <Link href="/signin/settings" className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]">
-              Settings
-            </Link>
-            <Link href="/gallery" className="block px-4 py-2 text-sm text-[#00FFAB] hover:bg-[#1E1E1E]">
-              Gallery
-            </Link>
-
             {isDropdownOpen && (
               <div className="absolute right-0 mt-12 w-48 bg-[#181818] rounded-lg shadow-lg">
                 <Link
@@ -177,8 +168,6 @@ export default function FileUploadPage() {
               </div>
             )}
           </div>
-        )}
-      </div>
     ) : (
       // Show "Sign In" button if the modal is NOT open
       !showSignInOptions && (
