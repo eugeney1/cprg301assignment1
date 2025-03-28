@@ -43,6 +43,40 @@ export default function GalleryPage() {
     }
   };
 
+  // This function handles downloading files.
+  // If the user wants a PNG, it fetches the original image.
+  // If a DSB is requested, it calls the conversion endpoint to create an embroidery file.
+  const handleDownload = async (photo, extension) => {
+    try {
+      let blob;
+      if (extension === ".png") {
+        const response = await fetch(photo.filepath);
+        blob = await response.blob();
+      } else if (extension === ".dsb") {
+        // Call a dedicated API endpoint that converts the image
+        // to an embroidery file format (DSB) that works with your machine.
+        // This endpoint must be implemented on your server.
+        const response = await fetch(`/api/convert-to-dsb?id=${photo.id}`);
+        if (!response.ok) {
+          throw new Error('Embroidery conversion failed.');
+        }
+        blob = await response.blob();
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      // Replace the file extension with the new one.
+      const baseFilename = photo.filename.replace(/\.[^/.]+$/, "");
+      a.href = url;
+      a.download = baseFilename + extension;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading image:", error);
+    }
+  };
+
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return "";
     const isoString = timestamp.replace(" ", "T") + "Z";
@@ -89,12 +123,28 @@ export default function GalleryPage() {
                   <p className="text-sm text-gray-400">
                     {formatTimestamp(photo.timestamp)}
                   </p>
-                  <button
-                    onClick={() => handleDelete(photo.id)}
-                    className="mt-4 w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-500 transition-all duration-200"
-                  >
-                    Delete
-                  </button>
+                  <div className="mt-4 flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleDownload(photo, ".png")}
+                        className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-400 transition-all duration-200"
+                      >
+                        Download PNG
+                      </button>
+                      <button
+                        onClick={() => handleDownload(photo, ".dsb")}
+                        className="w-full bg-purple-500 text-white py-2 rounded-md hover:bg-purple-400 transition-all duration-200"
+                      >
+                        Download DSB
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => handleDelete(photo.id)}
+                      className="w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-500 transition-all duration-200"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
