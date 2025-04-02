@@ -19,11 +19,14 @@ import java.util.List;
 
 import javax.swing.AbstractAction;
 import javax.swing.ActionMap;
+import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
 import javax.swing.InputMap;
 import javax.swing.JButton;
 import javax.swing.JColorChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
 import javax.swing.KeyStroke;
@@ -46,6 +49,15 @@ public class StitchVisualizer extends JPanel {
             "beige", "pink"
     };
     private DrawingPanel drawingPanel;
+    private StatsPanel statsPanel; // New field
+
+    // New fields for statistics
+    private List<String> colorNames;
+    private List<Integer> stitchesPerColor;
+    private int totalStitches;
+    private int numberOfJumps;
+    private int numberOfColors;
+    private double widthMm, heightMm, widthInches, heightInches;
 
     private void skipToNextColor() {
         for (int i = currentActionIndex + 1; i < actions.size(); i++) {
@@ -55,13 +67,13 @@ public class StitchVisualizer extends JPanel {
                 return;
             }
         }
-        // If no more JUMP actions are found, go to the end
         currentActionIndex = actions.size() - 1;
         repaint();
     }
 
     public StitchVisualizer() {
-        loadStitchData("mush-test3.dsb", new int[] { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 2, 3, 4 });
+        loadStitchData("mush-test8.dsb", new int[] { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 2, 3, 4 });
+        computeStats(); // Calculate statistics after loading data
 
         // Build actions for animation
         for (Polyline polyline : polylines) {
@@ -74,7 +86,6 @@ public class StitchVisualizer extends JPanel {
         }
         currentActionIndex = actions.size() - 1; // Show full design initially
 
-        // Set up animation timer
         // Set up animation timer
         animationTimer = new Timer(ANIMATION_DELAY, new ActionListener() {
             @Override
@@ -89,79 +100,74 @@ public class StitchVisualizer extends JPanel {
         });
 
         // Set up UI
+        // Set up UI
         setLayout(new BorderLayout());
-        drawingPanel = new DrawingPanel();
-        add(drawingPanel, BorderLayout.CENTER);
 
+        JLayeredPane layeredPane = new JLayeredPane() {
+            @Override
+            public void doLayout() {
+                super.doLayout();
+                drawingPanel.setSize(getSize()); // Ensure drawingPanel resizes with the window
+            }
+        };
+
+        drawingPanel = new DrawingPanel();
+        layeredPane.add(drawingPanel, JLayeredPane.DEFAULT_LAYER);
+
+        statsPanel = new StatsPanel();
+        statsPanel.setLocation(10, 10); // Position at top-left with some padding
+        statsPanel.setSize(statsPanel.getPreferredSize()); // Size based on content
+        layeredPane.add(statsPanel, JLayeredPane.PALETTE_LAYER);
+
+        add(layeredPane, BorderLayout.CENTER);
+
+        // Continue with buttonPanel setup as before
         JPanel buttonPanel = new JPanel(new FlowLayout());
 
-        // Start Animation Button
         JButton startButton = new JButton("Start Animation");
-        startButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                currentActionIndex = 0;
-                animationTimer.start();
-            }
+        startButton.addActionListener(e -> {
+            currentActionIndex = 0;
+            animationTimer.start();
         });
 
-        // Fast Forward Button
         JButton fastForwardButton = new JButton("Fast Forward");
-        fastForwardButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                animationTimer.stop();
-                currentActionIndex = actions.size() - 1;
+        fastForwardButton.addActionListener(e -> {
+            animationTimer.stop();
+            currentActionIndex = actions.size() - 1;
+            repaint();
+        });
+
+        JButton colorButton = new JButton("Change Background Color");
+        colorButton.addActionListener(e -> {
+            Color newColor = JColorChooser.showDialog(StitchVisualizer.this, "Choose Background Color",
+                    backgroundColor);
+            if (newColor != null) {
+                backgroundColor = newColor;
                 repaint();
             }
         });
 
-        // Change Background Color Button
-        JButton colorButton = new JButton("Change Background Color");
-        colorButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                Color newColor = JColorChooser.showDialog(StitchVisualizer.this, "Choose Background Color",
-                        backgroundColor);
-                if (newColor != null) {
-                    backgroundColor = newColor;
-                    repaint();
-                }
-            }
-        });
-
         JButton skipButton = new JButton("Skip to Next Color");
-        skipButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                skipToNextColor();
-            }
-        });
+        skipButton.addActionListener(e -> skipToNextColor());
 
         buttonPanel.add(startButton);
         buttonPanel.add(fastForwardButton);
         buttonPanel.add(colorButton);
         buttonPanel.add(skipButton);
 
-        // Add label and slider for animation delay
         JLabel speedLabel = new JLabel("Animation Delay (ms):");
-        JSlider speedSlider = new JSlider(0, 100, ANIMATION_DELAY); // min=1, max=100, initial=10
-        speedSlider.setMajorTickSpacing(20); // Major ticks every 20 ms
-        speedSlider.setMinorTickSpacing(5); // Minor ticks every 5 ms
-        speedSlider.setPaintTicks(true); // Show tick marks
-        speedSlider.setPaintLabels(true); // Show labels at major ticks
+        JSlider speedSlider = new JSlider(0, 100, ANIMATION_DELAY);
+        speedSlider.setMajorTickSpacing(20);
+        speedSlider.setMinorTickSpacing(5);
+        speedSlider.setPaintTicks(true);
+        speedSlider.setPaintLabels(true);
         buttonPanel.add(speedLabel);
         buttonPanel.add(speedSlider);
 
-        // Add listener to update timer delay when slider changes
-        speedSlider.addChangeListener(e -> {
-            int delay = speedSlider.getValue();
-            animationTimer.setDelay(delay);
-        });
-
+        speedSlider.addChangeListener(e -> animationTimer.setDelay(speedSlider.getValue()));
         add(buttonPanel, BorderLayout.SOUTH);
 
-        // Set up key bindings on the main panel
+        // Key bindings
         InputMap inputMap = getInputMap(WHEN_IN_FOCUSED_WINDOW);
         ActionMap actionMap = getActionMap();
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()),
@@ -184,7 +190,6 @@ public class StitchVisualizer extends JPanel {
         });
     }
 
-    // Inner class for the drawing area
     private class DrawingPanel extends JPanel {
         private double translateX = 0;
         private double translateY = 0;
@@ -192,7 +197,6 @@ public class StitchVisualizer extends JPanel {
         private Point lastMousePoint;
 
         public DrawingPanel() {
-            // Mouse wheel for zoom
             addMouseWheelListener(new MouseAdapter() {
                 @Override
                 public void mouseWheelMoved(MouseWheelEvent e) {
@@ -202,7 +206,6 @@ public class StitchVisualizer extends JPanel {
                 }
             });
 
-            // Mouse drag for pan
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
@@ -229,6 +232,7 @@ public class StitchVisualizer extends JPanel {
             g2d.setColor(backgroundColor);
             g2d.fillRect(0, 0, getWidth(), getHeight());
 
+            // Apply transformations for drawing stitches
             g2d.translate(translateX, translateY);
             g2d.scale(scale, scale);
 
@@ -248,10 +252,9 @@ public class StitchVisualizer extends JPanel {
                 }
             }
 
-            // Draw needle position
             if (needlePosition != null) {
                 g2d.setColor(Color.RED);
-                int radius = 2; // Size in stitch coordinates
+                int radius = 2;
                 g2d.fillOval((int) (needlePosition[0] - radius), (int) (needlePosition[1] - radius),
                         2 * radius, 2 * radius);
             }
@@ -306,33 +309,17 @@ public class StitchVisualizer extends JPanel {
                 int dy = buffer[1] & 0xFF;
                 int dx = buffer[2] & 0xFF;
 
-                // Adjust signs based on command bits
                 if ((command & 0x20) != 0)
-                    dx = -dx; // Bit 5 sets X sign
+                    dx = -dx;
                 if ((command & 0x40) != 0)
-                    dy = -dy; // Bit 6 sets Y sign
+                    dy = -dy;
 
-                // Calculate new position
                 int nextX = currentX + dx;
                 int nextY = currentY + dy;
 
-                // Determine command type
                 boolean isColorChange = (command & 0x08) != 0;
                 boolean isJump = (command & 0x01) != 0;
-                String type;
-                if (isColorChange) {
-                    type = "Color Change";
-                } else if (isJump) {
-                    type = "Jump";
-                } else {
-                    type = "Stitch";
-                }
 
-                // Print command details with signed X and Y values
-                System.out.printf("Type: %s, DX: %d, DY: %d, Position: (%d, %d)\n",
-                        type, dx, dy, nextX, nextY);
-
-                // Handle polyline updates
                 if (isColorChange) {
                     if (currentPolyline.size() > 1) {
                         polylines.add(new Polyline(currentPolyline, currentColor));
@@ -351,18 +338,60 @@ public class StitchVisualizer extends JPanel {
                     currentPolyline.add(new double[] { nextX, -nextY });
                 }
 
-                // Update current position
                 currentX = nextX;
                 currentY = nextY;
             }
 
-            // Add the final polyline if it has data
             if (currentPolyline.size() > 1) {
                 polylines.add(new Polyline(currentPolyline, currentColor));
             }
         } catch (IOException e) {
             System.err.println("Error reading file: " + e.getMessage());
         }
+    }
+
+    private void computeStats() {
+        if (polylines.isEmpty())
+            return;
+
+        colorNames = new ArrayList<>();
+        stitchesPerColor = new ArrayList<>();
+        String currentColor = polylines.get(0).color;
+        int currentStitches = 0;
+
+        for (Polyline polyline : polylines) {
+            if (polyline.color.equals(currentColor)) {
+                currentStitches += polyline.points.size() - 1;
+            } else {
+                colorNames.add(currentColor);
+                stitchesPerColor.add(currentStitches);
+                currentColor = polyline.color;
+                currentStitches = polyline.points.size() - 1;
+            }
+        }
+        colorNames.add(currentColor);
+        stitchesPerColor.add(currentStitches);
+
+        totalStitches = stitchesPerColor.stream().mapToInt(Integer::intValue).sum();
+        numberOfJumps = polylines.size();
+        numberOfColors = colorNames.size();
+
+        double minX = Double.MAX_VALUE, maxX = Double.MIN_VALUE;
+        double minY = Double.MAX_VALUE, maxY = Double.MIN_VALUE;
+        for (Polyline polyline : polylines) {
+            for (double[] point : polyline.points) {
+                minX = Math.min(minX, point[0]);
+                maxX = Math.max(maxX, point[0]);
+                minY = Math.min(minY, point[1]);
+                maxY = Math.max(maxY, point[1]);
+            }
+        }
+        double width = maxX - minX;
+        double height = maxY - minY;
+        widthMm = width / 10.0;
+        heightMm = height / 10.0;
+        widthInches = width / 254.0;
+        heightInches = height / 254.0;
     }
 
     private static class StitchAction {
@@ -372,12 +401,31 @@ public class StitchVisualizer extends JPanel {
 
         Type type;
         double[] point;
-        String color; // null for JUMP
+        String color;
 
         StitchAction(Type type, double[] point, String color) {
             this.type = type;
             this.point = point;
             this.color = color;
+        }
+    }
+
+    private class StatsPanel extends JPanel {
+        public StatsPanel() {
+            setLayout(new BoxLayout(this, BoxLayout.Y_AXIS)); // Stack labels vertically
+            setBackground(Color.WHITE); // Fixed white background
+            setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5)); // 5px padding
+
+            // Add statistics labels
+            add(new JLabel("Total Stitches: " + totalStitches));
+            add(new JLabel("Number of Jumps: " + numberOfJumps));
+            add(new JLabel("Number of Colors: " + numberOfColors));
+            add(new JLabel("Design Size: " + String.format("%.2f x %.2f mm", widthMm, heightMm)));
+            add(new JLabel("            " + String.format("%.2f x %.2f inches", widthInches, heightInches)));
+            for (int i = 0; i < stitchesPerColor.size(); i++) {
+                add(new JLabel("Color " + (i + 1) + " (" + colorNames.get(i) + "): " +
+                        stitchesPerColor.get(i) + " stitches"));
+            }
         }
     }
 

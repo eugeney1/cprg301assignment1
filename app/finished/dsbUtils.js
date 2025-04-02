@@ -322,24 +322,25 @@ export function generatePixel(direction) {
  */
 function findEfficientPath(grid) {
   const rows = grid.length;
+  if (rows === 0) return [];
   const cols = grid[0].length;
   const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
-  const componentPaths = [];
+  const components = []; // Array of sets of points for each group
 
-  // Define eight possible directions (including diagonals)
+  // Eight directions for connectivity (including diagonals)
   const directions = [
-    [-1, 0], // up
-    [1, 0], // down
-    [0, -1], // left
-    [0, 1], // right
-    [-1, -1], // up-left
-    [-1, 1], // up-right
-    [1, -1], // down-left
-    [1, 1], // down-right
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1], // up, down, left, right
+    [-1, -1],
+    [-1, 1],
+    [1, -1],
+    [1, 1], // diagonals
   ];
 
-  // DFS to collect the path for a connected component
-  function dfs(row, col, path) {
+  // DFS to collect points in a connected component
+  function collectPoints(row, col, points) {
     if (
       row < 0 ||
       row >= rows ||
@@ -351,56 +352,108 @@ function findEfficientPath(grid) {
       return;
     }
     visited[row][col] = true;
-    path.push([row, col]);
+    points.push([row, col]);
     for (const [dr, dc] of directions) {
-      dfs(row + dr, col + dc, path);
+      collectPoints(row + dr, col + dc, points);
     }
   }
 
-  // Step 1: Collect all connected component paths
+  // DFS to generate a path starting at a specific point
+  function generatePath(startRow, startCol, groupPoints) {
+    const path = [];
+    const localVisited = new Set();
+    const pointSet = new Set(groupPoints.map((p) => `${p[0]},${p[1]}`));
+
+    function dfs(row, col) {
+      if (
+        row < 0 ||
+        row >= rows ||
+        col < 0 ||
+        col >= cols ||
+        !pointSet.has(`${row},${col}`) ||
+        localVisited.has(`${row},${col}`)
+      ) {
+        return;
+      }
+      localVisited.add(`${row},${col}`);
+      path.push([row, col]);
+      for (const [dr, dc] of directions) {
+        dfs(row + dr, col + dc);
+      }
+    }
+
+    dfs(startRow, startCol);
+    return path;
+  }
+
+  // Collect all components as sets of points
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
       if (grid[row][col] === 1 && !visited[row][col]) {
-        const path = [];
-        dfs(row, col, path);
-        componentPaths.push(path);
+        const points = [];
+        collectPoints(row, col, points);
+        components.push(points);
       }
     }
   }
 
-  // Handle empty grid case
-  if (componentPaths.length === 0) {
-    return [];
+  if (components.length === 0) return [];
+
+  // Helper function for Manhattan distance
+  function manhattanDistance(pointA, pointB) {
+    return Math.abs(pointA[0] - pointB[0]) + Math.abs(pointA[1] - pointB[1]);
   }
 
-  // Step 2: Order components greedily
-  const orderedPaths = [componentPaths[0]]; // Start with the first component
-  let remaining = componentPaths.slice(1); // Remaining components to order
+  // Find the group with the top-leftmost point as the starting group
+  let minRow = rows,
+    minCol = cols,
+    startIdx = -1;
+  for (let i = 0; i < components.length; i++) {
+    for (const [row, col] of components[i]) {
+      if (row < minRow || (row === minRow && col < minCol)) {
+        minRow = row;
+        minCol = col;
+        startIdx = i;
+      }
+    }
+  }
 
+  // Initialize the path with the starting group
+  const orderedPaths = [];
+  const startGroup = components[startIdx];
+  const startPoint = [minRow, minCol];
+  orderedPaths.push(generatePath(startPoint[0], startPoint[1], startGroup));
+  const remaining = components.filter((_, idx) => idx !== startIdx);
+
+  // Greedy selection to order groups and generate paths
   while (remaining.length > 0) {
     const lastPath = orderedPaths[orderedPaths.length - 1];
-    const lastPoint = lastPath[lastPath.length - 1]; // End of current path
-    let minDistance = Infinity;
-    let closestIndex = -1;
+    const lastPoint = lastPath[lastPath.length - 1];
 
-    // Find the unvisited component with the closest starting point
+    let minDistance = Infinity;
+    let closestGroupIdx = -1;
+    let closestPoint = null;
+
+    // Find the closest point in any remaining group
     for (let i = 0; i < remaining.length; i++) {
-      const firstPoint = remaining[i][0]; // Start of next potential path
-      const distance =
-        Math.abs(lastPoint[0] - firstPoint[0]) +
-        Math.abs(lastPoint[1] - firstPoint[1]); // Manhattan distance
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestIndex = i;
+      for (const point of remaining[i]) {
+        const distance = manhattanDistance(lastPoint, point);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestGroupIdx = i;
+          closestPoint = point;
+        }
       }
     }
 
-    // Add the closest component and remove it from remaining
-    orderedPaths.push(remaining[closestIndex]);
-    remaining.splice(closestIndex, 1);
+    // Generate path for the chosen group starting at the closest point
+    const nextGroup = remaining[closestGroupIdx];
+    const nextPath = generatePath(closestPoint[0], closestPoint[1], nextGroup);
+    orderedPaths.push(nextPath);
+    remaining.splice(closestGroupIdx, 1);
   }
 
-  // Step 3: Concatenate all ordered paths
+  // Concatenate all ordered paths
   const finalPath = [].concat(...orderedPaths);
   return finalPath;
 }
@@ -429,16 +482,17 @@ async function processRegionStream(dsb, region, onProgress) {
   const totalPositions = positions.length;
 
   for (let i = 0; i < totalPositions; i++) {
-    // Even rows: left to right; Odd rows: right to left
-
     const targetX = positions[i][1] * STITCH_LENGTH;
     const targetY = positions[i][0] * STITCH_LENGTH;
 
     await dsb.addJumpTo(targetX, targetY);
 
-    // Stitch the pixel
-    if (positions[i][1] % 2 == 0) direction = "even";
-    else direction = "odd";
+    // Set direction for checkerboard pattern
+    if ((positions[i][0] + positions[i][1]) % 2 == 0) {
+      direction = "even";
+    } else {
+      direction = "odd";
+    }
     const pixelStitches = generatePixel(direction);
     for (const stitch of pixelStitches) {
       await dsb.addStitch(stitch.command, stitch.y, stitch.x);
