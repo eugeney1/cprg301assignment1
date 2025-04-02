@@ -23,7 +23,9 @@ import javax.swing.InputMap;
 import javax.swing.JButton;
 import javax.swing.JColorChooser;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JSlider;
 import javax.swing.KeyStroke;
 import javax.swing.Timer;
 
@@ -31,7 +33,7 @@ public class StitchVisualizer extends JPanel {
     private static final int WINDOW_WIDTH = 800;
     private static final int WINDOW_HEIGHT = 600;
     private static final double ZOOM_FACTOR = 1.1;
-    private static final int ANIMATION_DELAY = 1; // milliseconds
+    private static final int ANIMATION_DELAY = 10; // milliseconds
 
     private List<Polyline> polylines = new ArrayList<>();
     private List<StitchAction> actions = new ArrayList<>();
@@ -59,7 +61,7 @@ public class StitchVisualizer extends JPanel {
     }
 
     public StitchVisualizer() {
-        loadStitchData("mona-lisa11.dsb", new int[] { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 2, 3, 4 });
+        loadStitchData("mush-test3.dsb", new int[] { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 2, 3, 4 });
 
         // Build actions for animation
         for (Polyline polyline : polylines) {
@@ -72,6 +74,7 @@ public class StitchVisualizer extends JPanel {
         }
         currentActionIndex = actions.size() - 1; // Show full design initially
 
+        // Set up animation timer
         // Set up animation timer
         animationTimer = new Timer(ANIMATION_DELAY, new ActionListener() {
             @Override
@@ -139,6 +142,23 @@ public class StitchVisualizer extends JPanel {
         buttonPanel.add(fastForwardButton);
         buttonPanel.add(colorButton);
         buttonPanel.add(skipButton);
+
+        // Add label and slider for animation delay
+        JLabel speedLabel = new JLabel("Animation Delay (ms):");
+        JSlider speedSlider = new JSlider(0, 100, ANIMATION_DELAY); // min=1, max=100, initial=10
+        speedSlider.setMajorTickSpacing(20); // Major ticks every 20 ms
+        speedSlider.setMinorTickSpacing(5); // Minor ticks every 5 ms
+        speedSlider.setPaintTicks(true); // Show tick marks
+        speedSlider.setPaintLabels(true); // Show labels at major ticks
+        buttonPanel.add(speedLabel);
+        buttonPanel.add(speedSlider);
+
+        // Add listener to update timer delay when slider changes
+        speedSlider.addChangeListener(e -> {
+            int delay = speedSlider.getValue();
+            animationTimer.setDelay(delay);
+        });
+
         add(buttonPanel, BorderLayout.SOUTH);
 
         // Set up key bindings on the main panel

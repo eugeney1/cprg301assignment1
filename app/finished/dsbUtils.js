@@ -83,7 +83,6 @@ export class DSBWriter {
     this.maxY = Math.max(this.maxY, this.currentY);
     this.minY = Math.min(this.minY, this.currentY);
 
-    // Rest of the method remains the same
     if (this.currentChunk.length >= this.chunkSize) {
       await this.flushCurrentChunk();
     }
@@ -217,7 +216,6 @@ export class DSBWriter {
  */
 export function generatePixel(direction) {
   const stitches = [];
-  const pixel_length = 12;
 
   // Starting stitch
   stitches.push({
@@ -226,168 +224,187 @@ export function generatePixel(direction) {
     x: 0,
   });
 
-  // Create the pixel with a v patern
+  // Create the pixel with a hourglass patern
+  // every other pixel has its patern flipped,
+  // this esnures that there is less edge overlap.
 
-  if (direction == "right") {
+  if (direction == "odd") {
     stitches.push({
       command: DSB_COMMANDS.STITCH_NEG_Y,
-      y: STITCH_LENGTH,
+      y: STITCH_LENGTH / 2,
       x: STITCH_LENGTH / 2,
     });
-    stitches.push({
-      command: DSB_COMMANDS.STITCH,
-      y: STITCH_LENGTH,
-      x: STITCH_LENGTH / 2,
-    });
-    stitches.push({
-      command: DSB_COMMANDS.STITCH_NEG_Y,
-      y: STITCH_LENGTH,
-      x: 0,
-    });
-
-    stitches.push({
-      command: DSB_COMMANDS.STITCH_NEG_X,
-      y: 0,
-      x: STITCH_LENGTH,
-    });
-
     stitches.push({
       command: DSB_COMMANDS.STITCH,
       y: STITCH_LENGTH,
       x: 0,
     });
 
-    stitches.push({
-      command: DSB_COMMANDS.STITCH,
-      y: 0,
-      x: STITCH_LENGTH,
-    });
-  } else {
-    // left
     stitches.push({
       command: DSB_COMMANDS.STITCH_NEG_BOTH,
       y: STITCH_LENGTH,
+      x: STITCH_LENGTH,
+    });
+
+    stitches.push({
+      command: DSB_COMMANDS.STITCH,
+      y: STITCH_LENGTH,
+      x: 0,
+    });
+
+    stitches.push({
+      command: DSB_COMMANDS.STITCH_NEG_Y,
+      y: STITCH_LENGTH / 2,
+      x: STITCH_LENGTH / 2,
+    });
+  } else {
+    // even
+    stitches.push({
+      command: DSB_COMMANDS.STITCH,
+      y: STITCH_LENGTH / 2,
       x: STITCH_LENGTH / 2,
     });
     stitches.push({
       command: DSB_COMMANDS.STITCH_NEG_X,
-      y: STITCH_LENGTH,
-      x: STITCH_LENGTH / 2,
+      y: 0,
+      x: STITCH_LENGTH,
     });
+
     stitches.push({
       command: DSB_COMMANDS.STITCH_NEG_Y,
       y: STITCH_LENGTH,
-      x: 0,
-    });
-
-    stitches.push({
-      command: DSB_COMMANDS.STITCH,
-      y: 0,
       x: STITCH_LENGTH,
-    });
-
-    stitches.push({
-      command: DSB_COMMANDS.STITCH,
-      y: STITCH_LENGTH,
-      x: 0,
     });
 
     stitches.push({
       command: DSB_COMMANDS.STITCH_NEG_X,
       y: 0,
       x: STITCH_LENGTH,
+    });
+
+    stitches.push({
+      command: DSB_COMMANDS.STITCH,
+      y: STITCH_LENGTH / 2,
+      x: STITCH_LENGTH / 2,
     });
   }
 
   return stitches;
 }
 
-async function floodFill(imageData, onProgress = null) {
-  const data = imageData.data;
-  const width = imageData.width;
-  const height = imageData.height;
-  const totalPixels = width * height;
+/**
+ * Finds an efficient path to visit all '1's in a 2D grid, prioritizing adjacent connections and minimizing jumps between groups.
+ *
+ * This method takes a 2D array of '0's and '1's and returns a list of [row, col] coordinates
+ * representing the positions of all '1's in an order that optimizes the path by reducing the
+ * distance of jumps between separate groups. Two '1's are considered adjacent if they are next
+ * to each other in any of the eight directions (up, down, left, right, and four diagonals).
+ * The algorithm uses Depth-First Search (DFS) to traverse each connected group of '1's completely,
+ * collecting each group's path separately. It then orders these paths greedily, connecting the
+ * end of one group's path to the start of the nearest unvisited group's path, minimizing the total
+ * jump distance between distinct groups. Within each group, all moves are to adjacent '1's, and
+ * jumps occur only between groups, with the resulting path visiting all '1's with fewer and shorter
+ * jumps compared to a simple scan order (achieving k-1 jumps, where k is the number of connected groups).
+ *
+ * @param {string[][]} grid - A 2D array where each element is '0' or '1'.
+ * @returns {number[][]} An array of [row, col] pairs representing the ordered path to visit
+ *                       all '1's in the grid. Each pair is an array of two integers: the row
+ *                       index and column index of a '1'.
+ * @example
+ * const grid = [
+ *   ['0', '1', '0'],
+ *   ['1', '0', '1'],
+ *   ['0', '1', '0']
+ * ];
+ * const path = findEfficientPath(grid);
+ * // Returns something like [[0,1], [1,0], [2,1], [1,2]]
+ * // (exact order within a group may vary, but jumps between groups are minimized)
+ */
+function findEfficientPath(grid) {
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+  const componentPaths = [];
 
-  console.log(
-    `Starting flood fill for image: ${width}x${height} (${totalPixels} pixels)`
-  );
+  // Define eight possible directions (including diagonals)
+  const directions = [
+    [-1, 0], // up
+    [1, 0], // down
+    [0, -1], // left
+    [0, 1], // right
+    [-1, -1], // up-left
+    [-1, 1], // up-right
+    [1, -1], // down-left
+    [1, 1], // down-right
+  ];
 
-  const colorMap = new Map();
+  // DFS to collect the path for a connected component
+  function dfs(row, col, path) {
+    if (
+      row < 0 ||
+      row >= rows ||
+      col < 0 ||
+      col >= cols ||
+      grid[row][col] !== 1 ||
+      visited[row][col]
+    ) {
+      return;
+    }
+    visited[row][col] = true;
+    path.push([row, col]);
+    for (const [dr, dc] of directions) {
+      dfs(row + dr, col + dc, path);
+    }
+  }
 
-  // First pass: collect colors (using RGB only)
-  console.time("Color collection");
-  const pixelsPerChunk = 1000;
-  for (let i = 0; i < data.length; i += pixelsPerChunk * 4) {
-    await new Promise((resolve) => setTimeout(resolve, 0));
+  // Step 1: Collect all connected component paths
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      if (grid[row][col] === 1 && !visited[row][col]) {
+        const path = [];
+        dfs(row, col, path);
+        componentPaths.push(path);
+      }
+    }
+  }
 
-    const endIndex = Math.min(i + pixelsPerChunk * 4, data.length);
-    for (let j = i; j < endIndex; j += 4) {
-      const r = data[j];
-      const g = data[j + 1];
-      const b = data[j + 2];
-      const colorKey = `${r},${g},${b}`; // RGB only
-      if (!colorMap.has(colorKey)) {
-        colorMap.set(colorKey, []);
-        console.log(`Found new color: RGB(${r},${g},${b})`);
+  // Handle empty grid case
+  if (componentPaths.length === 0) {
+    return [];
+  }
+
+  // Step 2: Order components greedily
+  const orderedPaths = [componentPaths[0]]; // Start with the first component
+  let remaining = componentPaths.slice(1); // Remaining components to order
+
+  while (remaining.length > 0) {
+    const lastPath = orderedPaths[orderedPaths.length - 1];
+    const lastPoint = lastPath[lastPath.length - 1]; // End of current path
+    let minDistance = Infinity;
+    let closestIndex = -1;
+
+    // Find the unvisited component with the closest starting point
+    for (let i = 0; i < remaining.length; i++) {
+      const firstPoint = remaining[i][0]; // Start of next potential path
+      const distance =
+        Math.abs(lastPoint[0] - firstPoint[0]) +
+        Math.abs(lastPoint[1] - firstPoint[1]); // Manhattan distance
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = i;
       }
     }
 
-    if (onProgress) {
-      onProgress(Math.min(i / 4, totalPixels) * 0.5, totalPixels);
-    }
+    // Add the closest component and remove it from remaining
+    orderedPaths.push(remaining[closestIndex]);
+    remaining.splice(closestIndex, 1);
   }
-  console.timeEnd("Color collection");
-  console.log(`Total unique colors found: ${colorMap.size}`);
 
-  // Initialize and fill regions
-  console.time("Region initialization");
-  const colorRegions = new Map();
-  for (const colorKey of colorMap.keys()) {
-    colorRegions.set(colorKey, Array(height));
-    for (let y = 0; y < height; y++) {
-      colorRegions.get(colorKey)[y] = new Uint8Array(width);
-    }
-  }
-  console.timeEnd("Region initialization");
-
-  console.time("Region filling");
-  const rowsPerChunk = 50;
-  for (let y = 0; y < height; y += rowsPerChunk) {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    const endY = Math.min(y + rowsPerChunk, height);
-    for (let cy = y; cy < endY; cy++) {
-      for (let x = 0; x < width; x++) {
-        const idx = (cy * width + x) * 4;
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
-        const colorKey = `${r},${g},${b}`; // RGB only (no alpha)
-        if (colorRegions.has(colorKey)) {
-          colorRegions.get(colorKey)[cy][x] = 1;
-        } else {
-          console.warn(
-            `Color key ${colorKey} not found in colorRegions at (${x},${cy})`
-          );
-        }
-      }
-    }
-
-    if (onProgress) {
-      onProgress(totalPixels * 0.5 + y * width, totalPixels);
-    }
-  }
-  console.timeEnd("Region filling");
-
-  // Debug: Check one of the regions
-  const sampleColor = colorMap.keys().next().value;
-  console.log(
-    `Sample region for color ${sampleColor}:`,
-    colorRegions.get(sampleColor)
-  );
-
-  return Array.from(colorRegions.values());
+  // Step 3: Concatenate all ordered paths
+  const finalPath = [].concat(...orderedPaths);
+  return finalPath;
 }
+
 /**
  * @param region is a 2 dimensional array, the first dimension being the column,
  * the second being the row.
@@ -402,92 +419,36 @@ async function floodFill(imageData, onProgress = null) {
 // In dsbUtils.js
 
 async function processRegionStream(dsb, region, onProgress) {
-  const positions = [];
-
-  // Collect positions where region[j][i] === 1
-  for (let j = 0; j < region.length; j++) {
-    for (let i = 0; i < region[j].length; i++) {
-      if (region[j][i] === 1) {
-        positions.push([i, j]);
-      }
-    }
-  }
-
-  // Group by row
-  const rows = {};
-  for (const [i, j] of positions) {
-    if (!rows[j]) rows[j] = [];
-    rows[j].push(i);
-  }
-
-  // Sort rows by j
-  const sortedRows = Object.entries(rows).sort((a, b) => a[0] - b[0]);
+  console.log("region" + region);
+  const positions = findEfficientPath(region);
+  console.log("here");
+  console.log(positions);
 
   let processed = 0;
   let direction;
   const totalPositions = positions.length;
 
-  for (const [j, rowPositions] of sortedRows) {
-    const rowJ = parseInt(j);
+  for (let i = 0; i < totalPositions; i++) {
     // Even rows: left to right; Odd rows: right to left
-    rowPositions.sort((a, b) => (rowJ % 2 === 0 ? a - b : b - a));
 
-    for (const i of rowPositions) {
-      const targetX = i * STITCH_LENGTH;
-      const targetY = rowJ * STITCH_LENGTH;
+    const targetX = positions[i][1] * STITCH_LENGTH;
+    const targetY = positions[i][0] * STITCH_LENGTH;
 
-      // Jump only if current position differs (handled by addJumpTo)
-      if (rowJ % 2 == 0) await dsb.addJumpTo(targetX, targetY);
-      else await dsb.addJumpTo(targetX + STITCH_LENGTH, targetY);
+    await dsb.addJumpTo(targetX, targetY);
 
-      // Stitch the pixel
-      if (rowJ % 2 == 0) direction = "right";
-      else direction = "left";
-      const pixelStitches = generatePixel(direction);
-      for (const stitch of pixelStitches) {
-        await dsb.addStitch(stitch.command, stitch.y, stitch.x);
-      }
+    // Stitch the pixel
+    if (positions[i][1] % 2 == 0) direction = "even";
+    else direction = "odd";
+    const pixelStitches = generatePixel(direction);
+    for (const stitch of pixelStitches) {
+      await dsb.addStitch(stitch.command, stitch.y, stitch.x);
+    }
 
-      processed++;
-      if (onProgress) {
-        onProgress(processed, totalPositions);
-      }
+    processed++;
+    if (onProgress) {
+      onProgress(processed, totalPositions);
     }
   }
-}
-
-async function getPixelatedImageData(url) {
-  const response = await fetch(url);
-  const blob = await response.blob();
-  const bitmap = await createImageBitmap(blob);
-
-  // Create a canvas with reduced dimensions
-  const reducedWidth = Math.floor(bitmap.width / 9);
-  const reducedHeight = Math.floor(bitmap.height / 9);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = reducedWidth;
-  canvas.height = reducedHeight;
-
-  const ctx = canvas.getContext("2d");
-
-  // Draw image scaled down to 1/3 of original size
-  ctx.drawImage(
-    bitmap,
-    0,
-    0,
-    bitmap.width,
-    bitmap.height, // source dimensions
-    0,
-    0,
-    reducedWidth,
-    reducedHeight // destination dimensions
-  );
-
-  return {
-    imageData: ctx.getImageData(0, 0, canvas.width, canvas.height),
-    canvas: canvas,
-  };
 }
 
 /**
@@ -557,6 +518,16 @@ export async function downloadDSB(
     for (let i = 0; i < regions.length; i++) {
       regions[i] = regions[i].reverse();
     }
+
+    // debugging for seeing the arrays
+    for (let i = 0; i < regions.length; i++) {
+      console.log(`Region ${i} for color ${palette[i]}:`);
+      regions[i].forEach((row) => console.log(row.join("")));
+      if (excludedIndices.includes(i)) {
+        console.log(`(This region will be excluded from processing)`);
+      }
+    }
+    //
 
     const dsbHeaderInfo = {
       stitchCount: imageData.stitchCount,
