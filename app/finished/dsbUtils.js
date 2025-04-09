@@ -293,41 +293,41 @@ export function generatePixel(direction) {
 }
 
 /**
- * Finds an efficient path to visit all '1's in a 2D grid, prioritizing adjacent connections and minimizing jumps between groups.
+ * Finds an ordered path through all 1's in a 2D grid, minimizing jumps between clusters.
  *
- * This method takes a 2D array of '0's and '1's and returns a list of [row, col] coordinates
- * representing the positions of all '1's in an order that optimizes the path by reducing the
- * distance of jumps between separate groups. Two '1's are considered adjacent if they are next
- * to each other in any of the eight directions (up, down, left, right, and four diagonals).
- * The algorithm uses Depth-First Search (DFS) to traverse each connected group of '1's completely,
- * collecting each group's path separately. It then orders these paths greedily, connecting the
- * end of one group's path to the start of the nearest unvisited group's path, minimizing the total
- * jump distance between distinct groups. Within each group, all moves are to adjacent '1's, and
- * jumps occur only between groups, with the resulting path visiting all '1's with fewer and shorter
- * jumps compared to a simple scan order (achieving k-1 jumps, where k is the number of connected groups).
+ * This function takes a 2D grid of 0's and 1's and identifies clusters of connected 1's,
+ * where connection is defined by adjacency in any of the eight directions (up, down, left,
+ * right, and diagonals). It constructs a path that visits every 1 in the grid by:
+ * - Grouping 1's into clusters using iterative depth-first search (DFS),
+ * - Sorting clusters based on their average position (centroid),
+ * - Connecting clusters in a way that minimizes the distance between consecutive points.
  *
- * @param {string[][]} grid - A 2D array where each element is '0' or '1'.
- * @returns {number[][]} An array of [row, col] pairs representing the ordered path to visit
- *                       all '1's in the grid. Each pair is an array of two integers: the row
- *                       index and column index of a '1'.
- * @example
- * const grid = [
- *   ['0', '1', '0'],
- *   ['1', '0', '1'],
- *   ['0', '1', '0']
- * ];
- * const path = findEfficientPath(grid);
- * // Returns something like [[0,1], [1,0], [2,1], [1,2]]
- * // (exact order within a group may vary, but jumps between groups are minimized)
+ * @param {number[][]} grid - A 2D array where each element is either 0 or 1.
+ * @returns {number[][]} - An array of [row, col] coordinates representing the ordered path
+ *                         through all 1's in the grid. Returns an empty array if the grid
+ *                         is empty, invalid, or contains no 1's.
+ *
+ * **Approach**:
+ * 1. **Cluster Identification**: Use iterative DFS to group connected 1's into clusters,
+ *    storing each cluster's path and centroid (average row and column position).
+ * 2. **Cluster Sorting**: Sort clusters by their centroids, prioritizing row then column.
+ * 3. **Path Construction**: Build the final path by starting with the first cluster and
+ *    appending subsequent clusters, choosing to append each cluster's path forward or
+ *    reversed based on which end is closer to the current path's last position.
+ *
+ * **Time Complexity**: O(rows * cols) for DFS to find clusters, plus O(k log k) for sorting,
+ * where k is the number of clusters.
+ * **Space Complexity**: O(rows * cols) for the visited array, O(n) for the output path,
+ * where n is the total number of 1's in the grid.
  */
 function findEfficientPath(grid) {
-  const rows = grid.length;
-  if (rows === 0) return [];
-  const cols = grid[0].length;
-  const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
-  const components = []; // Array of sets of points for each group
+  // Handle empty or invalid grid
+  if (!grid || !grid.length || !grid[0].length) return [];
 
-  // Eight directions for connectivity (including diagonals)
+  const rows = grid.length;
+  const cols = grid[0].length;
+
+  // Define all eight directions for adjacency
   const directions = [
     [-1, 0],
     [1, 0],
@@ -339,123 +339,122 @@ function findEfficientPath(grid) {
     [1, 1], // diagonals
   ];
 
-  // DFS to collect points in a connected component
-  function collectPoints(row, col, points) {
-    if (
-      row < 0 ||
-      row >= rows ||
-      col < 0 ||
-      col >= cols ||
-      grid[row][col] !== 1 ||
-      visited[row][col]
-    ) {
-      return;
-    }
-    visited[row][col] = true;
-    points.push([row, col]);
-    for (const [dr, dc] of directions) {
-      collectPoints(row + dr, col + dc, points);
-    }
-  }
+  // Initialize visited array and clusters array
+  const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+  const clusters = [];
 
-  // DFS to generate a path starting at a specific point
-  function generatePath(startRow, startCol, groupPoints) {
-    const path = [];
-    const localVisited = new Set();
-    const pointSet = new Set(groupPoints.map((p) => `${p[0]},${p[1]}`));
+  // Iterative DFS to find a cluster
+  function findCluster(startRow, startCol) {
+    const stack = [[startRow, startCol]];
+    const path = [[startRow, startCol]];
+    visited[startRow][startCol] = true;
+    let sumRow = startRow;
+    let sumCol = startCol;
+    let count = 1;
 
-    function dfs(row, col) {
-      if (
-        row < 0 ||
-        row >= rows ||
-        col < 0 ||
-        col >= cols ||
-        !pointSet.has(`${row},${col}`) ||
-        localVisited.has(`${row},${col}`)
-      ) {
-        return;
-      }
-      localVisited.add(`${row},${col}`);
-      path.push([row, col]);
-      for (const [dr, dc] of directions) {
-        dfs(row + dr, col + dc);
-      }
-    }
-
-    dfs(startRow, startCol);
-    return path;
-  }
-
-  // Collect all components as sets of points
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      if (grid[row][col] === 1 && !visited[row][col]) {
-        const points = [];
-        collectPoints(row, col, points);
-        components.push(points);
-      }
-    }
-  }
-
-  if (components.length === 0) return [];
-
-  // Helper function for Manhattan distance
-  function manhattanDistance(pointA, pointB) {
-    return Math.abs(pointA[0] - pointB[0]) + Math.abs(pointA[1] - pointB[1]);
-  }
-
-  // Find the group with the top-leftmost point as the starting group
-  let minRow = rows,
-    minCol = cols,
-    startIdx = -1;
-  for (let i = 0; i < components.length; i++) {
-    for (const [row, col] of components[i]) {
-      if (row < minRow || (row === minRow && col < minCol)) {
-        minRow = row;
-        minCol = col;
-        startIdx = i;
-      }
-    }
-  }
-
-  // Initialize the path with the starting group
-  const orderedPaths = [];
-  const startGroup = components[startIdx];
-  const startPoint = [minRow, minCol];
-  orderedPaths.push(generatePath(startPoint[0], startPoint[1], startGroup));
-  const remaining = components.filter((_, idx) => idx !== startIdx);
-
-  // Greedy selection to order groups and generate paths
-  while (remaining.length > 0) {
-    const lastPath = orderedPaths[orderedPaths.length - 1];
-    const lastPoint = lastPath[lastPath.length - 1];
-
-    let minDistance = Infinity;
-    let closestGroupIdx = -1;
-    let closestPoint = null;
-
-    // Find the closest point in any remaining group
-    for (let i = 0; i < remaining.length; i++) {
-      for (const point of remaining[i]) {
-        const distance = manhattanDistance(lastPoint, point);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestGroupIdx = i;
-          closestPoint = point;
+    while (stack.length > 0) {
+      const [x, y] = stack.pop();
+      for (const [dx, dy] of directions) {
+        const newX = x + dx;
+        const newY = y + dy;
+        if (
+          newX >= 0 &&
+          newX < rows &&
+          newY >= 0 &&
+          newY < cols &&
+          grid[newX][newY] === 1 &&
+          !visited[newX][newY]
+        ) {
+          visited[newX][newY] = true;
+          stack.push([newX, newY]);
+          path.push([newX, newY]);
+          sumRow += newX;
+          sumCol += newY;
+          count++;
         }
       }
     }
 
-    // Generate path for the chosen group starting at the closest point
-    const nextGroup = remaining[closestGroupIdx];
-    const nextPath = generatePath(closestPoint[0], closestPoint[1], nextGroup);
-    orderedPaths.push(nextPath);
-    remaining.splice(closestGroupIdx, 1);
+    return path;
   }
 
-  // Concatenate all ordered paths
-  const finalPath = [].concat(...orderedPaths);
-  return finalPath;
+  // Step 1: Find all clusters and store them in the clusters array
+  for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+      if (grid[i][j] === 1 && !visited[i][j]) {
+        const cluster = findCluster(i, j);
+        clusters.push(cluster);
+      }
+    }
+  }
+
+  // sorting and ordering the clusters
+
+
+  let topLeft = [];
+  let reverse = false;
+
+  for (let cluster in clusters) {
+    let reversed = [...cluster].reverse();
+    if (topLeft == null) {
+      topLeft = cluster;
+    } else if (
+      topLeft[0] + topLeft[1] > cluster[0][0] + cluster[0][1] ||
+      topLeft[0] + topLeft[1] > reversed[0][0] + reversed[0][1]
+    ) {
+      if (topLeft[0] + topLeft[1] > reversed[0][0] + reversed[0][1]) {
+        reverse = true;
+        cluster.reverse();
+      }
+      topLeft = cluster;
+    }
+  }
+
+  const overallPath = [];
+
+  overallPath.push(topLeft);
+  if (reverse) {
+    topLeft.reverse;
+  }
+  clusters.splice(clusters.indexOf(topLeft), 1);
+
+  while (clusters.length > 0) {
+    let closest = [];
+    reverse = false;
+
+    for (let cluster in clusters) {
+      let reversed = [...cluster].reverse();
+      if (closest == null) {
+        closest = cluster;
+      } else if (
+        (Math.abs(closest[0] - cluster[0][0]) +
+          Math.abs(closest[1] - cluster[0][1])) /
+          2 >
+        (closest[1] + closest[0]) / 2
+      ) {
+        closest = cluster;
+      }
+      if (
+        (Math.abs(closest[0] - reversed[0][0]) +
+          Math.abs(closest[1] - reversed[0][1])) /
+          2 >
+        (closest[1] + closest[0]) / 2
+      ) {
+        cluster.reverse();
+        reverse = true;
+        closest = cluster;
+      }
+    }
+
+    overallPath.push(closest);
+    if (reverse) {
+      closest.reverse;
+    }
+    clusters.splice(clusters.indexOf(closest), 1);
+  }
+
+  // Step 4: Return the ordered path
+  return overallPath;
 }
 
 /**
