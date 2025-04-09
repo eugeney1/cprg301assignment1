@@ -378,7 +378,7 @@ function findEfficientPath(grid) {
     return path;
   }
 
-  // Step 1: Find all clusters and store them in the clusters array
+  // Step 1: Find all clusters
   for (let i = 0; i < rows; i++) {
     for (let j = 0; j < cols; j++) {
       if (grid[i][j] === 1 && !visited[i][j]) {
@@ -388,73 +388,54 @@ function findEfficientPath(grid) {
     }
   }
 
-  // sorting and ordering the clusters
-
-
-  let topLeft = [];
-  let reverse = false;
-
-  for (let cluster in clusters) {
-    let reversed = [...cluster].reverse();
-    if (topLeft == null) {
+  // Step 2: Find the top-left-most cluster
+  let minSum = Infinity;
+  let topLeft = null;
+  for (let cluster of clusters) {
+    const startSum = cluster[0][0] + cluster[0][1];
+    const endSum =
+      cluster[cluster.length - 1][0] + cluster[cluster.length - 1][1];
+    const minPossible = Math.min(startSum, endSum);
+    if (minPossible < minSum) {
+      minSum = minPossible;
       topLeft = cluster;
-    } else if (
-      topLeft[0] + topLeft[1] > cluster[0][0] + cluster[0][1] ||
-      topLeft[0] + topLeft[1] > reversed[0][0] + reversed[0][1]
-    ) {
-      if (topLeft[0] + topLeft[1] > reversed[0][0] + reversed[0][1]) {
-        reverse = true;
+      if (endSum < startSum) {
         cluster.reverse();
       }
-      topLeft = cluster;
     }
   }
 
-  const overallPath = [];
-
-  overallPath.push(topLeft);
-  if (reverse) {
-    topLeft.reverse;
-  }
+  const overallPath = [topLeft];
   clusters.splice(clusters.indexOf(topLeft), 1);
 
+  // Step 3: Connect remaining clusters by proximity
   while (clusters.length > 0) {
-    let closest = [];
-    reverse = false;
-
-    for (let cluster in clusters) {
-      let reversed = [...cluster].reverse();
-      if (closest == null) {
+    const lastCluster = overallPath[overallPath.length - 1];
+    const endCell = lastCluster[lastCluster.length - 1];
+    let minDist = Infinity;
+    let closest = null;
+    for (let cluster of clusters) {
+      const startDist =
+        Math.abs(endCell[0] - cluster[0][0]) +
+        Math.abs(endCell[1] - cluster[0][1]);
+      const endDist =
+        Math.abs(endCell[0] - cluster[cluster.length - 1][0]) +
+        Math.abs(endCell[1] - cluster[cluster.length - 1][1]);
+      const minPossible = Math.min(startDist, endDist);
+      if (minPossible < minDist) {
+        minDist = minPossible;
         closest = cluster;
-      } else if (
-        (Math.abs(closest[0] - cluster[0][0]) +
-          Math.abs(closest[1] - cluster[0][1])) /
-          2 >
-        (closest[1] + closest[0]) / 2
-      ) {
-        closest = cluster;
-      }
-      if (
-        (Math.abs(closest[0] - reversed[0][0]) +
-          Math.abs(closest[1] - reversed[0][1])) /
-          2 >
-        (closest[1] + closest[0]) / 2
-      ) {
-        cluster.reverse();
-        reverse = true;
-        closest = cluster;
+        if (endDist < startDist) {
+          cluster.reverse();
+        }
       }
     }
-
     overallPath.push(closest);
-    if (reverse) {
-      closest.reverse;
-    }
     clusters.splice(clusters.indexOf(closest), 1);
   }
 
-  // Step 4: Return the ordered path
-  return overallPath;
+  // Step 4: Return the flattened path
+  return overallPath.flat();
 }
 
 /**
